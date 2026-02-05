@@ -1,0 +1,465 @@
+import { useState } from "react";
+import { motion } from "framer-motion";
+import DashboardLayout from "@/components/dashboard/DashboardLayout";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Filter,
+  Plus,
+  X,
+  Play,
+  Save,
+  Sparkles,
+  TrendingUp,
+  TrendingDown,
+  ArrowUpDown,
+} from "lucide-react";
+
+interface FilterItem {
+  id: string;
+  field: string;
+  operator: string;
+  value: string;
+}
+
+const filterFields = [
+  { value: "sector", label: "Sector" },
+  { value: "market_cap", label: "Market Cap" },
+  { value: "pe_ratio", label: "P/E Ratio" },
+  { value: "revenue_growth", label: "Revenue Growth %" },
+  { value: "profit_margin", label: "Profit Margin %" },
+  { value: "roe", label: "ROE %" },
+  { value: "debt_to_equity", label: "Debt/Equity" },
+  { value: "dividend_yield", label: "Dividend Yield %" },
+  { value: "current_ratio", label: "Current Ratio" },
+];
+
+const operators = [
+  { value: "gt", label: ">" },
+  { value: "gte", label: ">=" },
+  { value: "lt", label: "<" },
+  { value: "lte", label: "<=" },
+  { value: "eq", label: "=" },
+];
+
+const sectorOptions = [
+  "Technology",
+  "Healthcare",
+  "Financials",
+  "Consumer Discretionary",
+  "Communication Services",
+  "Industrials",
+  "Energy",
+  "Materials",
+  "Utilities",
+  "Real Estate",
+];
+
+const mockResults = [
+  {
+    ticker: "MSFT",
+    company: "Microsoft Corporation",
+    sector: "Technology",
+    price: 415.25,
+    marketCap: "3.1T",
+    peRatio: 28.5,
+    revenueGrowth: 16.2,
+    profitMargin: 35.8,
+    matchScore: 95,
+  },
+  {
+    ticker: "AAPL",
+    company: "Apple Inc.",
+    sector: "Technology",
+    price: 225.50,
+    marketCap: "2.8T",
+    peRatio: 28.5,
+    revenueGrowth: 2.8,
+    profitMargin: 25.5,
+    matchScore: 88,
+  },
+  {
+    ticker: "NVDA",
+    company: "NVIDIA Corporation",
+    sector: "Technology",
+    price: 880.25,
+    marketCap: "2.2T",
+    peRatio: 65.2,
+    revenueGrowth: 126.0,
+    profitMargin: 52.1,
+    matchScore: 85,
+  },
+  {
+    ticker: "META",
+    company: "Meta Platforms Inc.",
+    sector: "Technology",
+    price: 520.80,
+    marketCap: "1.3T",
+    peRatio: 20.1,
+    revenueGrowth: 19.5,
+    profitMargin: 29.0,
+    matchScore: 82,
+  },
+  {
+    ticker: "GOOGL",
+    company: "Alphabet Inc.",
+    sector: "Technology",
+    price: 178.90,
+    marketCap: "2.2T",
+    peRatio: 22.5,
+    revenueGrowth: 11.0,
+    profitMargin: 24.0,
+    matchScore: 78,
+  },
+];
+
+const StockScanner = () => {
+  const [filters, setFilters] = useState<FilterItem[]>([
+    { id: "1", field: "sector", operator: "eq", value: "Technology" },
+    { id: "2", field: "market_cap", operator: "gte", value: "10000000000" },
+  ]);
+  const [results, setResults] = useState(mockResults);
+  const [sortField, setSortField] = useState("matchScore");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+
+  const addFilter = () => {
+    const newFilter: FilterItem = {
+      id: Date.now().toString(),
+      field: "pe_ratio",
+      operator: "lt",
+      value: "",
+    };
+    setFilters([...filters, newFilter]);
+  };
+
+  const removeFilter = (id: string) => {
+    setFilters(filters.filter((f) => f.id !== id));
+  };
+
+  const updateFilter = (
+    id: string,
+    field: keyof FilterItem,
+    value: string
+  ) => {
+    setFilters(
+      filters.map((f) => (f.id === id ? { ...f, [field]: value } : f))
+    );
+  };
+
+  const runScan = () => {
+    // In real app, this would call the API
+    setResults(mockResults);
+  };
+
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortOrder("desc");
+    }
+  };
+
+  return (
+    <DashboardLayout>
+      <div className="p-6 md:p-8 max-w-7xl mx-auto">
+        {/* Header */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="mb-8"
+        >
+          <div className="flex items-center gap-2 mb-2">
+            <h1 className="text-3xl font-serif font-semibold text-foreground">
+              Stock Scanner
+            </h1>
+            <span className="px-2 py-1 rounded bg-warning/10 text-warning text-xs font-medium flex items-center gap-1">
+              <Sparkles className="w-3 h-3" />
+              Premium
+            </span>
+          </div>
+          <p className="text-muted-foreground">
+            Screen stocks by custom financial criteria
+          </p>
+        </motion.div>
+
+        {/* Filter Builder */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.1 }}
+          className="rounded-xl bg-card border border-border p-6 mb-6"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+              <Filter className="w-5 h-5 text-primary" />
+              Filter Criteria
+            </h2>
+            <Button variant="outline" size="sm" onClick={addFilter} className="gap-2">
+              <Plus className="w-4 h-4" />
+              Add Filter
+            </Button>
+          </div>
+
+          <div className="space-y-3">
+            {filters.map((filter) => (
+              <div
+                key={filter.id}
+                className="flex items-center gap-3 p-3 rounded-lg bg-secondary/50"
+              >
+                <Select
+                  value={filter.field}
+                  onValueChange={(v) => updateFilter(filter.id, "field", v)}
+                >
+                  <SelectTrigger className="w-44 bg-background">
+                    <SelectValue placeholder="Select field" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {filterFields.map((field) => (
+                      <SelectItem key={field.value} value={field.value}>
+                        {field.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                {filter.field === "sector" ? (
+                  <>
+                    <span className="text-muted-foreground">=</span>
+                    <Select
+                      value={filter.value}
+                      onValueChange={(v) => updateFilter(filter.id, "value", v)}
+                    >
+                      <SelectTrigger className="w-48 bg-background">
+                        <SelectValue placeholder="Select sector" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {sectorOptions.map((sector) => (
+                          <SelectItem key={sector} value={sector}>
+                            {sector}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </>
+                ) : (
+                  <>
+                    <Select
+                      value={filter.operator}
+                      onValueChange={(v) => updateFilter(filter.id, "operator", v)}
+                    >
+                      <SelectTrigger className="w-20 bg-background">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {operators.map((op) => (
+                          <SelectItem key={op.value} value={op.value}>
+                            {op.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
+                    <Input
+                      type="text"
+                      placeholder="Value"
+                      value={filter.value}
+                      onChange={(e) =>
+                        updateFilter(filter.id, "value", e.target.value)
+                      }
+                      className="w-32 bg-background"
+                    />
+                  </>
+                )}
+
+                <button
+                  onClick={() => removeFilter(filter.id)}
+                  className="ml-auto p-2 hover:bg-destructive/10 rounded-lg text-muted-foreground hover:text-destructive transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-3 mt-6">
+            <Button onClick={runScan} className="bg-gradient-primary gap-2">
+              <Play className="w-4 h-4" />
+              Run Scan
+            </Button>
+            <Button variant="outline" className="gap-2">
+              <Save className="w-4 h-4" />
+              Save Screener
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => setFilters([])}
+              className="text-muted-foreground"
+            >
+              Clear All
+            </Button>
+          </div>
+        </motion.div>
+
+        {/* Results */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+          className="rounded-xl bg-card border border-border overflow-hidden"
+        >
+          <div className="p-4 border-b border-border flex items-center justify-between">
+            <h2 className="font-semibold text-foreground">
+              Results ({results.length} matches)
+            </h2>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-border bg-secondary/30">
+                  <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider py-3 px-4">
+                    Company
+                  </th>
+                  <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider py-3 px-4">
+                    Sector
+                  </th>
+                  <th
+                    className="text-right text-xs font-medium text-muted-foreground uppercase tracking-wider py-3 px-4 cursor-pointer hover:text-foreground"
+                    onClick={() => handleSort("price")}
+                  >
+                    <span className="flex items-center justify-end gap-1">
+                      Price
+                      <ArrowUpDown className="w-3 h-3" />
+                    </span>
+                  </th>
+                  <th
+                    className="text-right text-xs font-medium text-muted-foreground uppercase tracking-wider py-3 px-4 cursor-pointer hover:text-foreground"
+                    onClick={() => handleSort("marketCap")}
+                  >
+                    <span className="flex items-center justify-end gap-1">
+                      Mkt Cap
+                      <ArrowUpDown className="w-3 h-3" />
+                    </span>
+                  </th>
+                  <th
+                    className="text-right text-xs font-medium text-muted-foreground uppercase tracking-wider py-3 px-4 cursor-pointer hover:text-foreground"
+                    onClick={() => handleSort("peRatio")}
+                  >
+                    <span className="flex items-center justify-end gap-1">
+                      P/E
+                      <ArrowUpDown className="w-3 h-3" />
+                    </span>
+                  </th>
+                  <th
+                    className="text-right text-xs font-medium text-muted-foreground uppercase tracking-wider py-3 px-4 cursor-pointer hover:text-foreground"
+                    onClick={() => handleSort("revenueGrowth")}
+                  >
+                    <span className="flex items-center justify-end gap-1">
+                      Rev Growth
+                      <ArrowUpDown className="w-3 h-3" />
+                    </span>
+                  </th>
+                  <th
+                    className="text-right text-xs font-medium text-muted-foreground uppercase tracking-wider py-3 px-4 cursor-pointer hover:text-foreground"
+                    onClick={() => handleSort("profitMargin")}
+                  >
+                    <span className="flex items-center justify-end gap-1">
+                      Margin
+                      <ArrowUpDown className="w-3 h-3" />
+                    </span>
+                  </th>
+                  <th
+                    className="text-right text-xs font-medium text-muted-foreground uppercase tracking-wider py-3 px-4 cursor-pointer hover:text-foreground"
+                    onClick={() => handleSort("matchScore")}
+                  >
+                    <span className="flex items-center justify-end gap-1">
+                      Match
+                      <ArrowUpDown className="w-3 h-3" />
+                    </span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {results.map((stock) => (
+                  <tr
+                    key={stock.ticker}
+                    className="border-b border-border/50 last:border-0 hover:bg-secondary/50 transition-colors cursor-pointer"
+                  >
+                    <td className="py-4 px-4">
+                      <div>
+                        <p className="font-semibold text-foreground">
+                          {stock.ticker}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {stock.company}
+                        </p>
+                      </div>
+                    </td>
+                    <td className="py-4 px-4">
+                      <span className="px-2 py-1 rounded bg-secondary text-xs text-muted-foreground">
+                        {stock.sector}
+                      </span>
+                    </td>
+                    <td className="py-4 px-4 text-right text-foreground">
+                      ${stock.price.toFixed(2)}
+                    </td>
+                    <td className="py-4 px-4 text-right text-foreground">
+                      ${stock.marketCap}
+                    </td>
+                    <td className="py-4 px-4 text-right text-foreground">
+                      {stock.peRatio}x
+                    </td>
+                    <td className="py-4 px-4 text-right">
+                      <span
+                        className={`flex items-center justify-end gap-1 ${
+                          stock.revenueGrowth >= 0
+                            ? "text-success"
+                            : "text-destructive"
+                        }`}
+                      >
+                        {stock.revenueGrowth >= 0 ? (
+                          <TrendingUp className="w-3 h-3" />
+                        ) : (
+                          <TrendingDown className="w-3 h-3" />
+                        )}
+                        {stock.revenueGrowth}%
+                      </span>
+                    </td>
+                    <td className="py-4 px-4 text-right text-foreground">
+                      {stock.profitMargin}%
+                    </td>
+                    <td className="py-4 px-4 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <div className="w-16 h-2 rounded-full bg-secondary overflow-hidden">
+                          <div
+                            className="h-full bg-gradient-primary rounded-full"
+                            style={{ width: `${stock.matchScore}%` }}
+                          />
+                        </div>
+                        <span className="text-sm font-medium text-foreground">
+                          {stock.matchScore}%
+                        </span>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </motion.div>
+      </div>
+    </DashboardLayout>
+  );
+};
+
+export default StockScanner;
