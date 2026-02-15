@@ -439,14 +439,37 @@ const StockScanner = () => {
                       {stock.profitMargin}%
                     </td>
                     <td className="py-4 px-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <div className="w-16 h-2 rounded-full bg-secondary overflow-hidden">
-                          <div
-                            className="h-full bg-gradient-primary rounded-full"
-                            style={{ width: `${stock.matchScore}%` }}
-                          />
+                      <div className="flex items-center justify-end gap-3">
+                        <div className="w-20 space-y-1">
+                          <div className="w-full h-2 rounded-full bg-secondary overflow-hidden">
+                            <motion.div
+                              initial={{ width: 0 }}
+                              animate={{ width: `${stock.matchScore}%` }}
+                              transition={{ delay: 0.1, duration: 0.8 }}
+                              className={`h-full rounded-full ${
+                                stock.matchScore >= 90
+                                  ? "bg-gradient-to-r from-success to-emerald-400"
+                                  : stock.matchScore >= 75
+                                  ? "bg-gradient-to-r from-primary to-blue-400"
+                                  : "bg-gradient-to-r from-warning to-amber-400"
+                              }`}
+                            />
+                          </div>
+                          <span className="text-xs text-muted-foreground">
+                            {stock.matchScore >= 90
+                              ? "Excellent"
+                              : stock.matchScore >= 75
+                              ? "Good"
+                              : "Fair"}
+                          </span>
                         </div>
-                        <span className="text-sm font-medium text-foreground">
+                        <span className={`text-sm font-bold ${
+                          stock.matchScore >= 90
+                            ? "text-success"
+                            : stock.matchScore >= 75
+                            ? "text-primary"
+                            : "text-warning"
+                        }`}>
                           {stock.matchScore}%
                         </span>
                       </div>

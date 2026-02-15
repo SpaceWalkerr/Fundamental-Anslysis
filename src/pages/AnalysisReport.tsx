@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
+import ChatMessage from "@/components/ChatMessage";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -67,6 +68,7 @@ const chatMessages = [
     role: "assistant",
     content:
       "I've analyzed Apple's financial statements. Feel free to ask me any questions about the analysis!",
+    sources: [],
   },
 ];
 
@@ -79,9 +81,47 @@ const AnalysisReport = () => {
     if (!inputValue.trim()) return;
 
     const newUserMessage = { role: "user", content: inputValue };
+    
+    let responseContent = "";
+    let sources = [];
+
+    if (inputValue.toLowerCase().includes("revenue")) {
+      responseContent = "Apple's revenue has shown consistent growth driven by Services and iPhone segments. The company reported $394.3B in FY2024, representing a 2.8% YoY increase.";
+      sources = [
+        {
+          document: "Apple Inc. 10-K Annual Report (FY2024)",
+          page: 24,
+          excerpt: "Total net sales increased to $394.3B in fiscal 2024, driven by strong Services and iPhone segment performance.",
+        },
+        {
+          document: "Apple Inc. 10-Q Quarterly Report (Q1 FY2025)",
+          page: 15,
+          excerpt: "Services revenue continues to grow at double-digit rates, with 15%+ YoY growth in the latest quarter.",
+        },
+      ];
+    } else if (inputValue.toLowerCase().includes("debt")) {
+      responseContent = "Apple's total debt stands at $123B, with a debt-to-equity ratio of 1.98. While higher than historical norms, the company's robust cash flow easily covers interest expenses with an interest coverage ratio of 42x.";
+      sources = [
+        {
+          document: "Apple Inc. 10-K Annual Report (FY2024)",
+          page: 42,
+          excerpt: "Total long-term debt as of September 28, 2024 was $123.0 billion, of which $8.0 billion is due within one year.",
+        },
+        {
+          document: "Investor Presentation Q1 2025",
+          page: 8,
+          excerpt: "Apple's strong free cash flow of $110+ billion annually provides ample coverage for debt obligations and shareholder returns.",
+        },
+      ];
+    } else {
+      responseContent = "I'd be happy to explain that. Looking at the financial data, Apple maintains strong fundamentals across most metrics. Is there a specific aspect you'd like me to elaborate on?";
+      sources = [];
+    }
+
     const mockResponse = {
       role: "assistant",
-      content: `Based on the financial statements, ${inputValue.toLowerCase().includes("revenue") ? "Apple's revenue has shown consistent growth driven by Services and iPhone segments. The company reported $394.3B in FY2024, representing a 2.8% YoY increase." : inputValue.toLowerCase().includes("debt") ? "Apple's total debt stands at $123B, with a debt-to-equity ratio of 1.98. While higher than historical norms, the company's robust cash flow easily covers interest expenses with an interest coverage ratio of 42x." : "I'd be happy to explain that. Looking at the financial data, Apple maintains strong fundamentals across most metrics. Is there a specific aspect you'd like me to elaborate on?"}`,
+      content: responseContent,
+      sources: sources,
     };
 
     setMessages([...messages, newUserMessage, mockResponse]);
@@ -316,22 +356,12 @@ const AnalysisReport = () => {
           <ScrollArea className="flex-1 p-4">
             <div className="space-y-4">
               {messages.map((message, index) => (
-                <div
+                <ChatMessage
                   key={index}
-                  className={`flex ${
-                    message.role === "user" ? "justify-end" : "justify-start"
-                  }`}
-                >
-                  <div
-                    className={`max-w-[85%] px-4 py-3 ${
-                      message.role === "user"
-                        ? "chat-bubble-user"
-                        : "chat-bubble-assistant"
-                    }`}
-                  >
-                    <p className="text-sm">{message.content}</p>
-                  </div>
-                </div>
+                  role={message.role as "user" | "assistant"}
+                  content={message.content}
+                  sources={message.sources}
+                />
               ))}
             </div>
           </ScrollArea>

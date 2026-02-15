@@ -2,6 +2,8 @@ import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
+import CompanySearchResults from "@/components/CompanySearchResults";
+import FileProcessingStatus from "@/components/FileProcessingStatus";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,6 +25,13 @@ const NewAnalysis = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [dragActive, setDragActive] = useState(false);
+  const [processingSteps, setProcessingSteps] = useState([
+    { name: "Uploading file", status: "pending" as const, progress: 0 },
+    { name: "Extracting text from document", status: "pending" as const, progress: 0 },
+    { name: "Generating embeddings", status: "pending" as const, progress: 0 },
+    { name: "Analyzing financial data", status: "pending" as const, progress: 0 },
+    { name: "Generating report", status: "pending" as const, progress: 0 },
+  ]);
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -52,20 +61,57 @@ const NewAnalysis = () => {
   const handleAnalyze = () => {
     setIsProcessing(true);
     setProgress(0);
+    
+    const stepDurations = [1500, 1800, 2000, 1500, 1200]; // ms for each step
+    let currentStep = 0;
+    let currentProgress = 0;
 
-    // Simulate processing
-    const interval = setInterval(() => {
-      setProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setTimeout(() => {
-            navigate("/dashboard/report/1");
-          }, 500);
-          return 100;
-        }
-        return prev + Math.random() * 15;
+    const animateStep = () => {
+      if (currentStep >= processingSteps.length) {
+        setTimeout(() => {
+          navigate("/dashboard/report/1");
+        }, 500);
+        return;
+      }
+
+      const stepDuration = stepDurations[currentStep];
+      const startProgress = currentProgress;
+      const startTime = Date.now();
+
+      setProcessingSteps((prev) => {
+        const newSteps = [...prev];
+        newSteps[currentStep].status = "processing";
+        return newSteps;
       });
-    }, 500);
+
+      const progressInterval = setInterval(() => {
+        const elapsed = Date.now() - startTime;
+        const stepProgress = Math.min((elapsed / stepDuration) * 100, 100);
+        const totalProgress = (currentStep * 20) + (stepProgress / 5);
+
+        setProgress(totalProgress);
+        setProcessingSteps((prev) => {
+          const newSteps = [...prev];
+          newSteps[currentStep].progress = stepProgress;
+          return newSteps;
+        });
+
+        if (elapsed >= stepDuration) {
+          clearInterval(progressInterval);
+          setProcessingSteps((prev) => {
+            const newSteps = [...prev];
+            newSteps[currentStep].status = "completed";
+            newSteps[currentStep].progress = 100;
+            return newSteps;
+          });
+          currentProgress = (currentStep + 1) * 20;
+          currentStep++;
+          setTimeout(animateStep, 300);
+        }
+      }, 50);
+    };
+
+    animateStep();
   };
 
   return (
@@ -97,7 +143,7 @@ const NewAnalysis = () => {
             <Search className="w-5 h-5 text-primary" />
             Search Public Company
           </h2>
-          <div className="relative">
+          <div className="relative mb-4">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
             <Input
               type="text"
@@ -107,27 +153,33 @@ const NewAnalysis = () => {
               className="pl-10 h-12 bg-secondary border-border"
             />
           </div>
-          <div className="flex flex-wrap gap-2 mt-4">
-            <span className="text-sm text-muted-foreground">Popular:</span>
-            {["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "TSLA"].map((ticker) => (
-              <button
-                key={ticker}
-                onClick={() => setSearchQuery(ticker)}
-                className="px-3 py-1.5 rounded-full bg-secondary text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors"
-              >
-                {ticker}
-              </button>
-            ))}
-          </div>
+          
+          {/* Popular Tickers */}
+          {!searchQuery && (
+            <div className="flex flex-wrap gap-2">
+              <span className="text-sm text-muted-foreground">Popular:</span>
+              {["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "TSLA"].map((ticker) => (
+                <button
+                  key={ticker}
+                  onClick={() => setSearchQuery(ticker)}
+                  className="px-3 py-1.5 rounded-full bg-secondary text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors"
+                >
+                  {ticker}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Search Results */}
           {searchQuery && (
-            <Button
-              onClick={handleAnalyze}
-              className="mt-4 bg-gradient-primary gap-2"
-              disabled={isProcessing}
-            >
-              Analyze {searchQuery.toUpperCase()}
-              <ArrowRight className="w-4 h-4" />
-            </Button>
+            <div className="mt-6">
+              <CompanySearchResults
+                query={searchQuery}
+                onAnalyze={(company) => {
+                  handleAnalyze();
+                }}
+              />
+            </div>
           )}
         </motion.div>
 
@@ -188,6 +240,14 @@ const NewAnalysis = () => {
                 className="hidden"
               />
             </label>
+          ) : isProcessing ? (
+            <FileProcessingStatus
+              fileName={selectedFile.name}
+              fileSize={selectedFile.size}
+              isProcessing={isProcessing}
+              overallProgress={progress}
+              steps={processingSteps}
+            />
           ) : (
             <div className="p-6 rounded-xl bg-secondary/50 border border-border">
               <div className="flex items-start gap-4">
@@ -212,38 +272,13 @@ const NewAnalysis = () => {
                     {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
                   </p>
 
-                  {isProcessing ? (
-                    <div className="space-y-2">
-                      <Progress value={progress} className="h-2" />
-                      <p className="text-sm text-muted-foreground flex items-center gap-2">
-                        {progress >= 100 ? (
-                          <>
-                            <CheckCircle className="w-4 h-4 text-success" />
-                            Analysis complete!
-                          </>
-                        ) : (
-                          <>
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                            {progress < 30
-                              ? "Extracting text..."
-                              : progress < 60
-                              ? "Analyzing financials..."
-                              : progress < 90
-                              ? "Generating report..."
-                              : "Finalizing..."}
-                          </>
-                        )}
-                      </p>
-                    </div>
-                  ) : (
-                    <Button
-                      onClick={handleAnalyze}
-                      className="bg-gradient-primary gap-2"
-                    >
-                      Start Analysis
-                      <ArrowRight className="w-4 h-4" />
-                    </Button>
-                  )}
+                  <Button
+                    onClick={handleAnalyze}
+                    className="bg-gradient-primary gap-2"
+                  >
+                    Start Analysis
+                    <ArrowRight className="w-4 h-4" />
+                  </Button>
                 </div>
               </div>
             </div>
