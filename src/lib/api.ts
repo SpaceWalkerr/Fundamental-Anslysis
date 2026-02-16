@@ -1,241 +1,195 @@
-// Mock API service for authentication
+// API Base URL
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
+// Helper function to get auth token
+const getAuthToken = () => {
+  return localStorage.getItem('auth_token');
+};
+
+// Helper function to make authenticated requests
+const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
+  const token = getAuthToken();
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+    ...options.headers,
+  };
+
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const response = await fetch(`${API_BASE_URL}${url}`, {
+    ...options,
+    headers,
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: 'Request failed' }));
+    throw new Error(error.detail || error.message || 'Request failed');
+  }
+
+  return response.json();
+};
+
+// Real API service for authentication
 export const authApi = {
   login: async (email: string, password: string) => {
-    // Simulate API delay
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    
-    // Mock validation
-    if (!email || !password) {
-      throw new Error('Email and password are required');
-    }
+    const data = await fetchWithAuth('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    });
+
+    // Store token
+    localStorage.setItem('auth_token', data.access_token);
 
     return {
-      user: {
-        id: '1',
-        name: 'John Analyst',
-        email: email,
-        plan: 'premium',
-        reportsUsed: 12,
-        reportsLimit: 999,
-      },
-      token: 'mock_jwt_token_' + Date.now(),
+      user: data.user,
+      token: data.access_token,
     };
   },
 
   register: async (name: string, email: string, password: string) => {
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    
-    if (!name || !email || !password) {
-      throw new Error('All fields are required');
-    }
+    const data = await fetchWithAuth('/api/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ name, email, password }),
+    });
+
+    // Store token
+    localStorage.setItem('auth_token', data.access_token);
 
     return {
-      user: {
-        id: '1',
-        name: name,
-        email: email,
-        plan: 'free',
-        reportsUsed: 0,
-        reportsLimit: 5,
-      },
-      token: 'mock_jwt_token_' + Date.now(),
+      user: data.user,
+      token: data.access_token,
     };
   },
 
   logout: async () => {
-    await new Promise((resolve) => setTimeout(resolve, 300));
+    try {
+      await fetchWithAuth('/api/auth/logout', {
+        method: 'POST',
+      });
+    } finally {
+      localStorage.removeItem('auth_token');
+    }
     return { success: true };
   },
 
   getProfile: async () => {
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    return {
-      id: '1',
-      name: 'John Analyst',
-      email: 'john@example.com',
-      plan: 'premium',
-      reportsUsed: 12,
-      reportsLimit: 999,
-      createdAt: '2025-01-01',
-    };
+    const data = await fetchWithAuth('/api/auth/me');
+    return data;
   },
 
   updateProfile: async (updates: any) => {
-    await new Promise((resolve) => setTimeout(resolve, 800));
+    const data = await fetchWithAuth('/api/auth/me', {
+      method: 'PATCH',
+      body: JSON.stringify(updates),
+    });
     return {
       success: true,
-      user: { ...updates },
+      user: data,
     };
   },
 };
 
-// Mock API service for financial analysis
+// Real API service for financial analysis
 export const analysisApi = {
-  uploadFile: async (file: File) => {
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+  uploadFile: async (file: File, company?: string, ticker?: string) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (company) formData.append('company', company);
+    if (ticker) formData.append('ticker', ticker);
+
+    const token = getAuthToken();
+    const response = await fetch(`${API_BASE_URL}/api/analysis/upload`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Upload failed' }));
+      throw new Error(error.detail || 'Upload failed');
+    }
+
+    return response.json();
+  },
+
+  analyzeFile: async (fileId: string, company: string, ticker: string) => {
+    const data = await fetchWithAuth('/api/analysis/analyze', {
+      method: 'POST',
+      body: JSON.stringify({ 
+        file_id: fileId, 
+        company, 
+        ticker 
+      }),
+    });
     
     return {
-      fileId: 'file_' + Date.now(),
-      fileName: file.name,
-      size: file.size,
-      uploadedAt: new Date().toISOString(),
+      reportId: data.analysis_id,
+      status: data.status,
+      company,
+      ticker,
     };
   },
 
-  analyzeFile: async (fileId: string) => {
-    // Simulate AI processing time
-    await new Promise((resolve) => setTimeout(resolve, 3000));
-    
-    return {
-      reportId: 'report_' + Date.now(),
-      status: 'completed',
-      company: 'Sample Corporation',
-      ticker: 'SMPL',
-    };
+  getAnalysisStatus: async (analysisId: string) => {
+    return await fetchWithAuth(`/api/analysis/status/${analysisId}`);
   },
 
   getReport: async (reportId: string) => {
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    
-    return {
-      id: reportId,
-      company: 'Sample Corporation',
-      ticker: 'SMPL',
-      exchange: 'NASDAQ',
-      date: new Date().toLocaleDateString('en-US', { 
-        month: 'short', 
-        day: 'numeric', 
-        year: 'numeric' 
-      }),
-      overallScore: 7.8,
-      summary: 'Sample analysis generated by AI...',
-      metrics: {
-        profitability: { score: 8.2, label: 'Strong' },
-        liquidity: { score: 7.5, label: 'Good' },
-        solvency: { score: 7.8, label: 'Good' },
-        efficiency: { score: 8.0, label: 'Strong' },
-      },
-      keyRatios: [
-        { name: 'P/E Ratio', value: '24.5x', benchmark: 'Industry: 22.1x' },
-        { name: 'ROE', value: '22.3%', benchmark: 'Industry: 18.4%' },
-      ],
-      strengths: ['Strong market position', 'Consistent revenue growth'],
-      redFlags: ['High debt levels', 'Competitive pressure'],
-      investmentAssessment: 'Sample investment assessment...',
-    };
+    return await fetchWithAuth(`/api/reports/${reportId}`);
   },
 
   searchCompany: async (query: string) => {
-    await new Promise((resolve) => setTimeout(resolve, 800));
-    
-    const mockResults = [
-      { ticker: 'AAPL', name: 'Apple Inc.', exchange: 'NASDAQ' },
-      { ticker: 'MSFT', name: 'Microsoft Corporation', exchange: 'NASDAQ' },
-      { ticker: 'GOOGL', name: 'Alphabet Inc.', exchange: 'NASDAQ' },
-      { ticker: 'AMZN', name: 'Amazon.com Inc.', exchange: 'NASDAQ' },
-      { ticker: 'TSLA', name: 'Tesla Inc.', exchange: 'NASDAQ' },
-    ];
-
-    return mockResults.filter(
-      (company) =>
-        company.name.toLowerCase().includes(query.toLowerCase()) ||
-        company.ticker.toLowerCase().includes(query.toLowerCase())
-    );
+    const data = await fetchWithAuth(`/api/stocks/search?query=${encodeURIComponent(query)}`);
+    return data.results || [];
   },
 };
 
-// Mock API service for stock screening
+// Real API service for stock screening
 export const stockApi = {
   getStockData: async (ticker: string) => {
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    
-    return {
-      ticker,
-      name: 'Sample Company',
-      price: 150.25,
-      change: 2.35,
-      changePercent: 1.59,
-      marketCap: '2.5T',
-      pe: 28.5,
-      volume: 45000000,
-    };
+    return await fetchWithAuth(`/api/stocks/details/${ticker}`);
   },
 
   screenStocks: async (filters: any) => {
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    
-    const mockResults = [
-      {
-        ticker: 'MSFT',
-        company: 'Microsoft Corporation',
-        sector: 'Technology',
-        price: 415.25,
-        marketCap: '3.1T',
-        peRatio: 28.5,
-        revenueGrowth: 16.2,
-        profitMargin: 35.8,
-        matchScore: 95,
-      },
-      {
-        ticker: 'AAPL',
-        company: 'Apple Inc.',
-        sector: 'Technology',
-        price: 225.50,
-        marketCap: '2.8T',
-        peRatio: 28.5,
-        revenueGrowth: 2.8,
-        profitMargin: 25.5,
-        matchScore: 88,
-      },
-    ];
-
-    return mockResults;
+    const data = await fetchWithAuth('/api/stocks/screener', {
+      method: 'POST',
+      body: JSON.stringify(filters),
+    });
+    return data.results || [];
   },
 
   getWatchlist: async () => {
-    await new Promise((resolve) => setTimeout(resolve, 400));
-    
-    return [
-      { ticker: 'AAPL', name: 'Apple', price: 225.50, change: 2.35 },
-      { ticker: 'MSFT', name: 'Microsoft', price: 415.25, change: 1.82 },
-      { ticker: 'GOOGL', name: 'Alphabet', price: 145.80, change: -0.45 },
-    ];
+    // TODO: Implement watchlist endpoint in backend
+    // For now return empty array
+    return [];
   },
 };
 
-// Mock API service for chat/Q&A
+// Real API service for chat/Q&A
 export const chatApi = {
   sendMessage: async (reportId: string, message: string) => {
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    
-    const responses: Record<string, string> = {
-      revenue: "Based on the financial statements, the company's revenue has shown consistent growth of 12% YoY, driven primarily by its core business segments.",
-      debt: "The company's total debt stands at $50B with a debt-to-equity ratio of 1.2. While elevated, the strong cash flow provides adequate coverage.",
-      margin: "Profit margins have remained stable at around 25%, which is above the industry average of 20%.",
-    };
-
-    const keyword = Object.keys(responses).find((key) =>
-      message.toLowerCase().includes(key)
-    );
+    const data = await fetchWithAuth('/api/chat/message', {
+      method: 'POST',
+      body: JSON.stringify({ 
+        report_id: reportId, 
+        message 
+      }),
+    });
 
     return {
-      message: keyword
-        ? responses[keyword]
-        : "I'd be happy to explain that. Based on the financial data provided, could you be more specific about which aspect you'd like to explore?",
-      timestamp: new Date().toISOString(),
+      message: data.response,
+      timestamp: data.timestamp || new Date().toISOString(),
+      sources: data.sources || [],
     };
   },
 
   getChatHistory: async (reportId: string) => {
-    await new Promise((resolve) => setTimeout(resolve, 300));
-    
-    return [
-      {
-        role: 'assistant',
-        content: "I've analyzed the financial statements. Feel free to ask me any questions!",
-        timestamp: new Date().toISOString(),
-      },
-    ];
+    const data = await fetchWithAuth(`/api/chat/history/${reportId}`);
+    return data.messages || [];
   },
 };
 

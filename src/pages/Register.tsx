@@ -6,20 +6,37 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { TrendingUp, Mail, Lock, User, ArrowRight, Eye, EyeOff } from "lucide-react";
+import { useAuthStore } from "@/store/useAuthStore";
+import { useToast } from "@/hooks/use-toast";
 
 const Register = () => {
   const navigate = useNavigate();
+  const { register, isLoading } = useAuthStore();
+  const { toast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    password: "",
+  });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
-    // Simulate registration
-    setTimeout(() => {
-      setIsLoading(false);
+    
+    try {
+      await register(formData.name, formData.email, formData.password);
+      toast({
+        title: "Success",
+        description: "Account created successfully!",
+      });
       navigate("/dashboard");
-    }, 1000);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create account",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -83,6 +100,9 @@ const Register = () => {
                   type="text"
                   placeholder="John Analyst"
                   className="pl-10 h-12 bg-secondary border-border"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  required
                 />
               </div>
             </div>
@@ -96,6 +116,9 @@ const Register = () => {
                   type="email"
                   placeholder="you@example.com"
                   className="pl-10 h-12 bg-secondary border-border"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  required
                 />
               </div>
             </div>
@@ -109,6 +132,10 @@ const Register = () => {
                   type={showPassword ? "text" : "password"}
                   placeholder="••••••••"
                   className="pl-10 pr-10 h-12 bg-secondary border-border"
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  required
+                  minLength={8}
                 />
                 <button
                   type="button"

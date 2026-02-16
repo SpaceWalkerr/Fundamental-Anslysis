@@ -16,6 +16,7 @@ from app.models.schemas import (
     ChatSource,
 )
 from app.core.security import get_current_active_user
+from app.utils.rag_chat import RAGChatService
 
 
 router = APIRouter()
@@ -31,9 +32,9 @@ async def send_chat_message(
     Send a message and get AI response with sources
     Uses RAG to retrieve relevant document chunks
     """
-    # Verify report belongs to user
+    # Verify report belongs to user and get source document
     report_result = db.table('reports')\
-        .select('*')\
+        .select('*, source_documents(*)')\
         .eq('id', request.report_id)\
         .eq('user_id', current_user['id'])\
         .single()\
@@ -46,39 +47,54 @@ async def send_chat_message(
         )
     
     report = report_result.data
+    source_document_id = report.get('source_document_id')
     
-    # TODO: Implement actual RAG logic
-    # 1. Convert question to embedding
-    # 2. Search vector database for relevant chunks
-    # 3. Send chunks + question to LLM
-    # 4. Get response with citations
+    if not source_document_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Report has no associated document for chat"
+        )
     
-    # Mock response for now
-    mock_sources = [
-        ChatSource(
-            document=f"{report.get('company', 'Company')} 10-K Annual Report (FY2024)",
-            page=24,
-            excerpt="Total net sales increased to $394.3B in fiscal 2024, driven by strong Services and iPhone segment performance.",
-            similarity_score=0.92
-        ),
-        ChatSource(
-            document=f"{report.get('company', 'Company')} Investor Presentation Q1 2025",
-            page=8,
-            excerpt="Services revenue continues to grow at double-digit rates, with 15%+ YoY growth in the latest quarter.",
-            similarity_score=0.88
-        ),
-    ]
+    # Get conversation history (last 10 messages)
+    history_result = db.table('chat_messages')\
+        .select('role, message')\
+        .eq('report_id', request.report_id)\
+        .order('created_at', desc=False)\
+        .limit(10)\
+        .execute()
     
-    # Generate mock response based on question
-    if "revenue" in request.message.lower():
-        response_content = f"Based on the financial statements, {report.get('company', 'the company')}'s revenue has shown consistent growth driven by Services and core product segments. The company reported strong performance with double-digit growth in key areas."
-    elif "debt" in request.message.lower():
-        response_content = f"{report.get('company', 'The company')}'s debt levels have increased but remain manageable given robust cash flow generation. The company's interest coverage ratio remains strong, indicating ability to service debt obligations comfortably."
-    else:
-        response_content = "I'd be happy to help you understand that aspect better. Looking at the financial data, the company maintains strong fundamentals across most metrics. Could you be more specific about what you'd like to know?"
-        mock_sources = []
+    conversation_history = []
+    if history_result.data:
+        conversation_history = [
+            {"role": msg["role"], "content": msg["message"]}
+            for msg in history_result.data
+        ]
     
-    # Save chat message to database
+    # Initialize RAG chat service
+    rag_service = RAGChatService()
+    
+    # Get AI response with RAG
+    rag_response = rag_service.chat(
+        question=request.message,
+        document_id=source_document_id,
+        conversation_history=conversation_history,
+        n_context_chunks=5,
+        use_openai=True  # Can be made configurable
+    )
+    
+    response_content = rag_response["answer"]
+    
+    # Format sources for response
+    sources_data = []
+    for i, source in enumerate(rag_response.get("sources", [])):
+        sources_data.append(ChatSource(
+            document=source.get("document_id", "Document"),
+            page=source.get("chunk_index", 0) + 1,
+            excerpt="Relevant excerpt from financial document",  # Could be enhanced
+            similarity_score=source.get("relevance_score", 0.0)
+        ))
+    
+    # Save user message to database
     chat_record = {
         "id": str(uuid.uuid4()),
         "report_id": request.report_id,
@@ -96,7 +112,7 @@ async def send_chat_message(
         "user_id": current_user['id'],
         "role": "assistant",
         "message": response_content,
-        "sources": [source.dict() for source in mock_sources] if mock_sources else []
+        "sources": [source.dict() for source in sources_data] if sources_data else []
     }
     
     db.table('chat_messages').insert(assistant_record).execute()
@@ -104,7 +120,7 @@ async def send_chat_message(
     return ChatMessageResponse(
         role="assistant",
         content=response_content,
-        sources=mock_sources,
+        sources=sources_data,
         timestamp=datetime.utcnow()
     )
 

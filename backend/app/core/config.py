@@ -3,7 +3,8 @@ Application Configuration
 Loads settings from environment variables
 """
 from pydantic_settings import BaseSettings
-from typing import List
+from pydantic import field_validator
+from typing import List, Union
 import os
 
 
@@ -54,12 +55,8 @@ class Settings(BaseSettings):
     UPLOAD_DIR: str = "./uploads"
     MAX_UPLOAD_SIZE: int = 26214400  # 25MB
     
-    # CORS
-    CORS_ORIGINS: List[str] = [
-        "http://localhost:5173",
-        "http://localhost:8080",
-        "http://localhost:8081",
-    ]
+    # CORS - can be comma-separated string or list
+    CORS_ORIGINS: str = "http://localhost:5173,http://localhost:8080,http://localhost:8081"
     
     # Rate Limiting
     RATE_LIMIT_PER_MINUTE: int = 60
@@ -68,23 +65,22 @@ class Settings(BaseSettings):
     STOCK_API_KEY: str = ""
     STOCK_API_URL: str = ""
     
+    @field_validator('CORS_ORIGINS', mode='after')
+    @classmethod
+    def parse_cors_origins(cls, v):
+        """Parse CORS_ORIGINS from string to list"""
+        if isinstance(v, str):
+            return [origin.strip() for origin in v.split(",")]
+        return v
+    
     class Config:
         env_file = ".env"
         case_sensitive = True
-        
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        
-        # Create upload directory if it doesn't exist
+    
+    def model_post_init(self, __context):
+        """Create directories after model initialization"""
         os.makedirs(self.UPLOAD_DIR, exist_ok=True)
         os.makedirs(self.CHROMA_PERSIST_DIRECTORY, exist_ok=True)
-        
-        # Parse CORS origins if it's a comma-separated string
-        if isinstance(self.CORS_ORIGINS, str):
-            self.CORS_ORIGINS = [
-                origin.strip() 
-                for origin in self.CORS_ORIGINS.split(",")
-            ]
 
 
 # Initialize settings

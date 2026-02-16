@@ -19,6 +19,9 @@ from app.models.schemas import (
 )
 from app.core.security import get_current_active_user
 from app.core.config import settings
+from app.utils.file_processor import FileProcessor
+from app.utils.ai_analyzer import AIAnalyzer
+import asyncio
 
 
 router = APIRouter()
@@ -31,63 +34,82 @@ async def upload_file(
     db: Client = Depends(get_db)
 ):
     """
-    Upload a financial document (PDF, Excel, CSV)
+    Upload and process a financial document (PDF, Excel)
     """
-    # Validate file type
-    allowed_extensions = ['.pdf', '.xlsx', '.xls', '.csv']
-    file_ext = os.path.splitext(file.filename)[1].lower()
-    
-    if file_ext not in allowed_extensions:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"File type not supported. Allowed: {', '.join(allowed_extensions)}"
-        )
-    
-    # Validate file size
+    # Read file content
     file_content = await file.read()
     file_size = len(file_content)
     
-    if file_size > settings.MAX_UPLOAD_SIZE:
+    # Initialize file processor
+    processor = FileProcessor(db)
+    
+    # Validate file
+    is_valid, error_msg = processor.validate_file(file.filename, file_size)
+    if not is_valid:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"File too large. Maximum size: {settings.MAX_UPLOAD_SIZE / 1024 / 1024}MB"
+            detail=error_msg
         )
     
-    # Generate unique file ID
-    file_id = str(uuid.uuid4())
-    file_path = f"{current_user['id']}/{file_id}{file_ext}"
-    
     try:
-        # Upload to Supabase Storage
-        db.storage.from_('financial-documents').upload(
-            file_path,
-            file_content,
-            {
-                "content-type": file.content_type,
-                "upsert": "false"
+        # Upload to storage
+        upload_result = await processor.upload_to_storage(
+            file_content=file_content,
+            filename=file.filename,
+            user_id=current_user['id']
+        )
+        
+        if not upload_result["success"]:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=upload_result.get("error", "Upload failed")
+            )
+        
+        # Process file (extract text)
+        processing_result = processor.process_file(file_content, file.filename)
+        
+        if not processing_result["success"]:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=processing_result.get("error", "File processing failed")
+            )
+        
+        # Save document record with extracted text and metadata
+        document = await processor.save_document_record(
+            user_id=current_user['id'],
+            filename=file.filename,
+            file_size=file_size,
+            file_type=processing_result["file_type"],
+            storage_path=upload_result["storage_path"],
+            extracted_text=processing_result["extracted_text"],
+            metadata=processing_result["metadata"]
+        )
+        
+        # Add chunks to vector store for RAG
+        chunks_added = 0
+        if processing_result["chunks"]:
+            chunks_added = processor.add_to_vector_store(
+                document_id=document['id'],
+                chunks=processing_result["chunks"],
+                user_id=current_user['id'],
+                filename=file.filename
+            )
+        
+        return FileUploadResponse(
+            file_id=document['id'],
+            file_name=file.filename,
+            file_size=file_size,
+            uploaded_at=datetime.utcnow(),
+            metadata={
+                "extracted_text_length": len(processing_result["extracted_text"]),
+                "chunks_created": len(processing_result["chunks"]),
+                "chunks_embedded": chunks_added,
+                **processing_result["metadata"]
             }
         )
         
-        # Save file metadata to database
-        file_record = {
-            "id": file_id,
-            "user_id": current_user['id'],
-            "file_name": file.filename,
-            "file_path": file_path,
-            "file_size": file_size,
-            "file_type": file_ext,
-            "status": ProcessingStatus.PENDING.value,
-        }
-        
-        db.table('source_documents').insert(file_record).execute()
-        
-        return FileUploadResponse(
-            file_id=file_id,
-            file_name=file.filename,
-            file_size=file_size,
-            uploaded_at=datetime.utcnow()
-        )
-        
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -103,7 +125,7 @@ async def start_analysis(
 ):
     """
     Start financial analysis on uploaded file or company ticker
-    This triggers the background processing job
+    This performs AI-powered analysis and generates a report
     """
     # Check usage limits
     if current_user['reports_used'] >= current_user['reports_limit']:
@@ -116,16 +138,19 @@ async def start_analysis(
     report_id = str(uuid.uuid4())
     
     try:
-        # Create report record
+        # Create initial report record with PENDING status
         report_record = {
             "id": report_id,
             "user_id": current_user['id'],
             "status": ProcessingStatus.PENDING.value,
         }
         
+        document_text = ""
+        company_name = ""
+        
         # Add file or company info
         if request.file_id:
-            # Verify file belongs to user
+            # Verify file belongs to user and get extracted text
             file_result = db.table('source_documents')\
                 .select('*')\
                 .eq('id', request.file_id)\
@@ -140,36 +165,102 @@ async def start_analysis(
                 )
             
             report_record['source_document_id'] = request.file_id
+            document_text = file_result.data.get('extracted_text', '')
+            company_name = file_result.data.get('metadata', {}).get('company_name', 'Unknown Company')
+            
+            if not document_text:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Document has no extracted text. Please reupload the file."
+                )
             
         elif request.company_ticker or request.company_name:
-            report_record['company'] = request.company_name
-            report_record['ticker'] = request.company_ticker
+            # For company ticker/name, we'd fetch from external API
+            # For now, raise not implemented
+            raise HTTPException(
+                status_code=status.HTTP_501_NOT_IMPLEMENTED,
+                detail="Company ticker analysis not yet implemented. Please upload a financial document."
+            )
         else:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Either file_id or company_ticker must be provided"
             )
         
-        # Insert report
+        # Insert initial report
         db.table('reports').insert(report_record).execute()
         
-        # TODO: Trigger background Celery task for processing
-        # from app.services.analysis import process_analysis_task
-        # process_analysis_task.delay(report_id)
+        # Update status to PROCESSING
+        db.table('reports')\
+            .update({"status": ProcessingStatus.PROCESSING.value})\
+            .eq('id', report_id)\
+            .execute()
         
-        # For now, return immediately
+        # Initialize AI analyzer
+        analyzer = AIAnalyzer()
+        
+        # Perform AI analysis (this may take a few seconds)
+        analysis_result = await asyncio.to_thread(
+            analyzer.analyze_financial_document,
+            document_text=document_text,
+            company_name=company_name,
+            use_openai=(settings.OPENAI_API_KEY is not None and settings.OPENAI_API_KEY != "")
+        )
+        
+        # Update report with analysis results
+        update_data = {
+            "status": ProcessingStatus.COMPLETED.value,
+            "analysis_result": analysis_result,
+            "completed_at": datetime.utcnow().isoformat()
+        }
+        
+        db.table('reports')\
+            .update(update_data)\
+            .eq('id', report_id)\
+            .execute()
+        
+        # Update user reports usage
+        db.table('users')\
+            .update({
+                "reports_used": current_user['reports_used'] + 1,
+                "updated_at": datetime.utcnow().isoformat()
+            })\
+            .eq('id', current_user['id'])\
+            .execute()
+        
         return {
             "report_id": report_id,
-            "status": ProcessingStatus.PENDING.value,
-            "message": "Analysis started. Check status using /api/analysis/status/{report_id}"
+            "status": ProcessingStatus.COMPLETED.value,
+            "message": "Analysis completed successfully",
+            "analysis": analysis_result
         }
         
     except HTTPException:
+        # Update report to FAILED if it exists
+        try:
+            db.table('reports')\
+                .update({"status": ProcessingStatus.FAILED.value})\
+                .eq('id', report_id)\
+                .execute()
+        except:
+            pass
         raise
     except Exception as e:
+        # Update report to FAILED
+        try:
+            db.table('reports')\
+                .update({
+                    "status": ProcessingStatus.FAILED.value,
+                    "error": str(e)
+                })\
+                .eq('id', report_id)\
+                .execute()
+        except:
+            pass
+        
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to start analysis: {str(e)}"
+            detail=f"Failed to complete analysis: {str(e)}"
         )
 
 

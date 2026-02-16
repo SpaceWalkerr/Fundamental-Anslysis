@@ -49,6 +49,7 @@ class FileUploadResponse(BaseModel):
     file_name: str
     file_size: int
     uploaded_at: datetime
+    metadata: Optional[Dict[str, Any]] = None
 
 
 class ProcessingStatus(str, Enum):

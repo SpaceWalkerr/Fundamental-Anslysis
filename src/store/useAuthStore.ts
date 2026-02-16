@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { supabase } from '@/lib/supabase';
+import { authApi } from '@/lib/api';
 
 interface User {
   id: string;
@@ -33,17 +33,11 @@ export const useAuthStore = create<AuthState>()(
       initializeAuth: async () => {
         set({ isLoading: true });
         try {
-          const { data: { session } } = await supabase.auth.getSession();
+          const token = localStorage.getItem('auth_token');
           
-          if (session?.user) {
-            // Fetch user profile from database
-            const { data: profile, error } = await supabase
-              .from('users')
-              .select('*')
-              .eq('id', session.user.id)
-              .single();
-
-            if (error) throw error;
+          if (token) {
+            // Fetch user profile from backend
+            const profile = await authApi.getProfile();
 
             if (profile) {
               set({
@@ -62,6 +56,7 @@ export const useAuthStore = create<AuthState>()(
           }
         } catch (error) {
           console.error('Error initializing auth:', error);
+          localStorage.removeItem('auth_token');
           set({ user: null, isAuthenticated: false });
         } finally {
           set({ isLoading: false });
@@ -71,37 +66,21 @@ export const useAuthStore = create<AuthState>()(
       login: async (email: string, password: string) => {
         set({ isLoading: true });
         try {
-          const { data, error } = await supabase.auth.signInWithPassword({
-            email,
-            password,
-          });
+          const { user, token } = await authApi.login(email, password);
 
-          if (error) throw error;
-
-          if (data.user) {
-            // Fetch user profile
-            const { data: profile, error: profileError } = await supabase
-              .from('users')
-              .select('*')
-              .eq('id', data.user.id)
-              .single();
-
-            if (profileError) throw profileError;
-
-            if (profile) {
-              set({
-                user: {
-                  id: profile.id,
-                  name: profile.name,
-                  email: profile.email,
-                  avatar: profile.avatar_url || undefined,
-                  plan: profile.plan as 'free' | 'premium' | 'enterprise',
-                  reportsUsed: profile.reports_used,
-                  reportsLimit: profile.reports_limit,
-                },
-                isAuthenticated: true,
-              });
-            }
+          if (user) {
+            set({
+              user: {
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                avatar: user.avatar_url || undefined,
+                plan: user.plan as 'free' | 'premium' | 'enterprise',
+                reportsUsed: user.reports_used,
+                reportsLimit: user.reports_limit,
+              },
+              isAuthenticated: true,
+            });
           }
         } catch (error: any) {
           console.error('Login error:', error);
@@ -114,46 +93,21 @@ export const useAuthStore = create<AuthState>()(
       register: async (name: string, email: string, password: string) => {
         set({ isLoading: true });
         try {
-          const { data, error } = await supabase.auth.signUp({
-            email,
-            password,
-            options: {
-              data: {
-                name: name,
+          const { user, token } = await authApi.register(name, email, password);
+
+          if (user) {
+            set({
+              user: {
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                avatar: user.avatar_url || undefined,
+                plan: user.plan as 'free' | 'premium' | 'enterprise',
+                reportsUsed: user.reports_used,
+                reportsLimit: user.reports_limit,
               },
-            },
-          });
-
-          if (error) throw error;
-
-          if (data.user) {
-            // Profile will be created automatically by trigger
-            // Wait a moment for the trigger to complete
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            
-            // Fetch the created profile
-            const { data: profile, error: profileError } = await supabase
-              .from('users')
-              .select('*')
-              .eq('id', data.user.id)
-              .single();
-
-            if (profileError) throw profileError;
-
-            if (profile) {
-              set({
-                user: {
-                  id: profile.id,
-                  name: profile.name,
-                  email: profile.email,
-                  avatar: profile.avatar_url || undefined,
-                  plan: profile.plan as 'free' | 'premium' | 'enterprise',
-                  reportsUsed: profile.reports_used,
-                  reportsLimit: profile.reports_limit,
-                },
-                isAuthenticated: true,
-              });
-            }
+              isAuthenticated: true,
+            });
           }
         } catch (error: any) {
           console.error('Registration error:', error);
@@ -165,10 +119,11 @@ export const useAuthStore = create<AuthState>()(
 
       logout: async () => {
         try {
-          await supabase.auth.signOut();
-          set({ user: null, isAuthenticated: false });
+          await authApi.logout();
         } catch (error) {
           console.error('Logout error:', error);
+        } finally {
+          set({ user: null, isAuthenticated: false });
         }
       },
 
@@ -177,19 +132,16 @@ export const useAuthStore = create<AuthState>()(
         if (!currentUser) return;
 
         try {
-          const { error } = await supabase
-            .from('users')
-            .update({
-              name: updates.name,
-              avatar_url: updates.avatar,
-            })
-            .eq('id', currentUser.id);
+          const result = await authApi.updateProfile({
+            name: updates.name,
+            avatar_url: updates.avatar,
+          });
 
-          if (error) throw error;
-
-          set((state) => ({
-            user: state.user ? { ...state.user, ...updates } : null,
-          }));
+          if (result.success) {
+            set((state) => ({
+              user: state.user ? { ...state.user, ...updates } : null,
+            }));
+          }
         } catch (error) {
           console.error('Update user error:', error);
           throw error;
@@ -201,12 +153,3 @@ export const useAuthStore = create<AuthState>()(
     }
   )
 );
-
-// Initialize auth on app start
-supabase.auth.onAuthStateChange((event, session) => {
-  if (event === 'SIGNED_IN' && session) {
-    useAuthStore.getState().initializeAuth();
-  } else if (event === 'SIGNED_OUT') {
-    useAuthStore.setState({ user: null, isAuthenticated: false });
-  }
-});
