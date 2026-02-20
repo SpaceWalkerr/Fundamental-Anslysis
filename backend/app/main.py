@@ -8,8 +8,9 @@ from contextlib import asynccontextmanager
 import time
 
 from app.core.config import settings
-from app.api.endpoints import auth, analysis, chat, stocks, reports
+from app.api.endpoints import auth, analysis, chat, stocks, reports, alerts, market_ws, history, technicals, payments
 from app.db.database import init_db
+from app.utils.market_data_streamer import get_market_streamer, get_alert_checker
 
 
 @asynccontextmanager
@@ -22,6 +23,17 @@ async def lifespan(app: FastAPI):
     print("🚀 Starting FundaVision API...")
     await init_db()
     print("✅ Database initialized")
+    
+    # Start real-time services
+    market_streamer = get_market_streamer()
+    await market_streamer.start()
+    print("📡 Market data streamer started")
+    
+    from app.db.database import get_db_client
+    alert_checker = get_alert_checker(get_db_client())
+    await alert_checker.start()
+    print("🔔 Price alert checker started")
+    
     print(f"📊 Environment: {settings.ENVIRONMENT}")
     print(f"🔐 Debug mode: {settings.DEBUG}")
     
@@ -29,6 +41,9 @@ async def lifespan(app: FastAPI):
     
     # Shutdown
     print("👋 Shutting down FundaVision API...")
+    await market_streamer.stop()
+    await alert_checker.stop()
+    print("✅ Background services stopped")
 
 
 # Initialize FastAPI app
@@ -106,6 +121,11 @@ app.include_router(analysis.router, prefix="/api/analysis", tags=["Analysis"])
 app.include_router(chat.router, prefix="/api/chat", tags=["Chat"])
 app.include_router(stocks.router, prefix="/api/stocks", tags=["Stocks"])
 app.include_router(reports.router, prefix="/api/reports", tags=["Reports"])
+app.include_router(alerts.router, prefix="/api/alerts", tags=["Alerts"])
+app.include_router(history.router, prefix="/api", tags=["Historical Data"])
+app.include_router(technicals.router, prefix="/api", tags=["Technical Analysis"])
+app.include_router(payments.router, prefix="/api", tags=["Payments"])
+app.include_router(market_ws.router, prefix="/api", tags=["Market Data"])
 
 
 if __name__ == "__main__":

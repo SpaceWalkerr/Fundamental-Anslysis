@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     DEBUG: bool = True
     API_PORT: int = 8000
+    FRONTEND_URL: str = "http://localhost:5173"
     
     # Supabase
     SUPABASE_URL: str
@@ -39,6 +40,11 @@ class Settings(BaseSettings):
     # Anthropic
     ANTHROPIC_API_KEY: str = ""
     ANTHROPIC_MODEL: str = "claude-3-sonnet-20240229"
+    
+    # Stock Data APIs
+    ALPHA_VANTAGE_API_KEY: str = ""
+    FMP_API_KEY: str = ""  # Financial Modeling Prep
+    POLYGON_API_KEY: str = ""
     
     # Vector Database
     CHROMA_PERSIST_DIRECTORY: str = "./data/chroma"
