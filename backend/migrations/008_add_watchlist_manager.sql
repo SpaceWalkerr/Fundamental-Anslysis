@@ -3,10 +3,21 @@
 -- Date: 2026-02-20
 
 -- ============================================================================
+-- DROP EXISTING TABLES (if any from failed migrations)
+-- ============================================================================
+-- Drop in reverse order due to foreign key constraints
+DROP TABLE IF EXISTS watchlist_snapshots CASCADE;
+DROP TABLE IF EXISTS watchlist_items CASCADE;
+DROP TABLE IF EXISTS watchlists CASCADE;
+
+-- Drop the view if it exists
+DROP VIEW IF EXISTS watchlist_summary CASCADE;
+
+-- ============================================================================
 -- WATCHLISTS TABLE
 -- ============================================================================
 -- User-created watchlists for tracking stocks of interest
-CREATE TABLE IF NOT EXISTS watchlists (
+CREATE TABLE watchlists (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     name VARCHAR(200) NOT NULL,
@@ -32,7 +43,7 @@ COMMENT ON COLUMN watchlists.sort_order IS 'User-defined order for displaying wa
 -- WATCHLIST ITEMS TABLE
 -- ============================================================================
 -- Stocks added to watchlists with price targets and notes
-CREATE TABLE IF NOT EXISTS watchlist_items (
+CREATE TABLE watchlist_items (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     watchlist_id UUID NOT NULL REFERENCES watchlists(id) ON DELETE CASCADE,
     ticker VARCHAR(20) NOT NULL,
@@ -62,7 +73,7 @@ COMMENT ON COLUMN watchlist_items.tags IS 'User-defined tags for categorization'
 -- WATCHLIST SNAPSHOTS TABLE
 -- ============================================================================
 -- Historical snapshots of watchlist performance
-CREATE TABLE IF NOT EXISTS watchlist_snapshots (
+CREATE TABLE watchlist_snapshots (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     watchlist_id UUID NOT NULL REFERENCES watchlists(id) ON DELETE CASCADE,
     snapshot_date DATE NOT NULL,
@@ -147,11 +158,13 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Triggers for updated_at
+DROP TRIGGER IF EXISTS update_watchlists_timestamp ON watchlists;
 CREATE TRIGGER update_watchlists_timestamp
     BEFORE UPDATE ON watchlists
     FOR EACH ROW
     EXECUTE FUNCTION update_watchlist_updated_at();
 
+DROP TRIGGER IF EXISTS update_watchlist_items_timestamp ON watchlist_items;
 CREATE TRIGGER update_watchlist_items_timestamp
     BEFORE UPDATE ON watchlist_items
     FOR EACH ROW
@@ -173,6 +186,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS enforce_single_default_watchlist ON watchlists;
 CREATE TRIGGER enforce_single_default_watchlist
     BEFORE INSERT OR UPDATE ON watchlists
     FOR EACH ROW
@@ -197,6 +211,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Trigger to create default watchlist on user registration
+DROP TRIGGER IF EXISTS create_default_watchlist_on_user_creation ON auth.users;
 CREATE TRIGGER create_default_watchlist_on_user_creation
     AFTER INSERT ON auth.users
     FOR EACH ROW
@@ -215,6 +230,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS update_watchlist_on_item_change ON watchlist_items;
 CREATE TRIGGER update_watchlist_on_item_change
     AFTER INSERT OR UPDATE OR DELETE ON watchlist_items
     FOR EACH ROW
@@ -234,6 +250,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS set_added_price_on_insert ON watchlist_items;
 CREATE TRIGGER set_added_price_on_insert
     BEFORE INSERT ON watchlist_items
     FOR EACH ROW

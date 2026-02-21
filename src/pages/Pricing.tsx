@@ -63,7 +63,7 @@ export default function Pricing() {
 
   const fetchPlans = async () => {
     try {
-      const response = await api.get('/subscription-plans');
+      const response = await api.subscription.getPlans();
       setPlans(response.data);
     } catch (error) {
       console.error('Error fetching plans:', error);
@@ -75,7 +75,7 @@ export default function Pricing() {
 
   const fetchCurrentSubscription = async () => {
     try {
-      const response = await api.get('/subscription/status');
+      const response = await api.subscription.getStatus();
       setCurrentSubscription(response.data);
     } catch (error) {
       // User might not be logged in or have no subscription
@@ -92,15 +92,10 @@ export default function Pricing() {
     setCheckoutLoading(planName);
 
     try {
-      const response = await api.post('/subscription/checkout', {
-        plan_name: planName,
-        billing_cycle: billingCycle,
-        success_url: `${window.location.origin}/pricing?payment=success`,
-        cancel_url: `${window.location.origin}/pricing?payment=canceled`
-      });
+      const response = await api.subscription.createCheckout(planName, billingCycle);
 
       // Redirect to Stripe Checkout
-      window.location.href = response.data.url;
+      window.location.href = response.url;
     } catch (error: any) {
       console.error('Error creating checkout:', error);
       toast.error(error.response?.data?.detail || 'Failed to start checkout');

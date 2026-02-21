@@ -70,7 +70,7 @@ export default function SubscriptionManagement() {
   const fetchSubscriptionData = async () => {
     try {
       // Fetch subscription status
-      const subResponse = await api.get('/subscription/status');
+      const subResponse = await api.subscription.getStatus();
       setSubscription(subResponse.data);
 
       // Fetch usage data
@@ -79,7 +79,7 @@ export default function SubscriptionManagement() {
       
       for (const type of usageTypes) {
         try {
-          const response = await api.get(`/subscription/usage/${type}`);
+          const response = await api.subscription.getUsage(type);
           usageData[type] = response.data;
         } catch (error) {
           console.error(`Error fetching ${type} usage:`, error);
@@ -98,12 +98,11 @@ export default function SubscriptionManagement() {
   const handleManageSubscription = async () => {
     setActionLoading(true);
     try {
-      const response = await api.post('/subscription/portal', {
-        return_url: window.location.origin + '/settings'
-      });
+      const returnUrl = window.location.origin + '/settings';
+      const response = await api.subscription.createPortal(returnUrl);
       
       // Redirect to Stripe Customer Portal
-      window.location.href = response.data.url;
+      window.location.href = response.url;
     } catch (error: any) {
       console.error('Error opening portal:', error);
       toast.error(error.response?.data?.detail || 'Failed to open billing portal');
@@ -114,9 +113,7 @@ export default function SubscriptionManagement() {
   const handleCancelSubscription = async () => {
     setActionLoading(true);
     try {
-      await api.post('/subscription/cancel', {
-        immediately: false
-      });
+      await api.subscription.cancelSubscription(subscription.subscription_id || '');
       
       toast.success('Subscription will be canceled at the end of the billing period');
       await fetchSubscriptionData(); // Refresh data

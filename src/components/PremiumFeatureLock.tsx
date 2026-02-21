@@ -65,10 +65,8 @@ export function PremiumFeatureLock({
     }
 
     try {
-      const response = await api.post('/subscription/check-feature', {
-        feature_name: featureName
-      });
-      setHasAccess(response.data.has_access);
+      const response = await api.subscription.checkFeature(featureName);
+      setHasAccess(response.has_access);
     } catch (error) {
       console.error('Error checking feature access:', error);
       setHasAccess(false);
@@ -226,8 +224,8 @@ export function UsageLimitWarning({ limitType, onUpgrade }: UsageLimitWarningPro
 
   const checkUsage = async () => {
     try {
-      const response = await api.get(`/subscription/usage/${limitType}`);
-      setUsage(response.data);
+      const response = await api.subscription.getUsage(limitType);
+      setUsage(response);
     } catch (error) {
       console.error('Error checking usage:', error);
     } finally {

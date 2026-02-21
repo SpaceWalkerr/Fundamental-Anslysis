@@ -28,104 +28,112 @@ router = APIRouter()
 @router.post("/register", response_model=Token, status_code=status.HTTP_201_CREATED)
 async def register(user_data: UserRegister, db: Client = Depends(get_db)):
     """
-    Register a new user
+    Register a new user using Supabase Auth
     """
     try:
-        # Check if user already exists
-        existing_user = db.table('users').select('id').eq('email', user_data.email).execute()
+        # Use Supabase Auth to create user
+        auth_response = db.auth.sign_up({
+            "email": user_data.email,
+            "password": user_data.password,
+            "options": {
+                "data": {
+                    "name": user_data.name
+                }
+            }
+        })
         
-        if existing_user.data:
+        if not auth_response.user:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email already registered"
+                detail="Registration failed. Email may already be in use."
             )
         
-        # Hash password
-        hashed_password = get_password_hash(user_data.password)
+        user = auth_response.user
+        session = auth_response.session
         
-        # Create user profile in users table
-        import uuid
-        user_id = str(uuid.uuid4())
-        
-        user_profile = {
-            "id": user_id,
-            "name": user_data.name,
-            "email": user_data.email,
-            "password_hash": hashed_password,
-            "plan": "free",
-            "reports_used": 0,
-            "reports_limit": 5,
-        }
-        
-        result = db.table('users').insert(user_profile).execute()
-        
-        if not result.data:
+        if not session:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to create user"
+                detail="Failed to create session"
             )
         
-        # Create access token
-        access_token = create_access_token(
-            data={"sub": user_id, "email": user_data.email}
-        )
+        # Get user profile (created automatically by trigger)
+        profile_result = db.table('users').select('*').eq('id', user.id).execute()
         
-        return Token(
-            access_token=access_token,
-            token_type="bearer",
-            expires_in=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-            user={
-                "id": user_id,
-                "name": user_data.name,
+        if not profile_result.data:
+            # Fallback: create profile manually if trigger failed
+            profile = {
+                "id": user.id,
                 "email": user_data.email,
+                "name": user_data.name,
                 "plan": "free",
                 "reports_used": 0,
                 "reports_limit": 5,
             }
+            db.table('users').insert(profile).execute()
+        else:
+            profile = profile_result.data[0]
+        
+        return Token(
+            access_token=session.access_token,
+            token_type="bearer",
+            expires_in=session.expires_in or settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+            user={
+                "id": user.id,
+                "name": profile.get("name", user_data.name),
+                "email": user.email,
+                "plan": profile.get("plan", "free"),
+                "reports_used": profile.get("reports_used", 0),
+                "reports_limit": profile.get("reports_limit", 5),
+            }
         )
         
-    except HTTPException:
-        raise
     except Exception as e:
+        error_message = str(e)
+        if "already registered" in error_message.lower() or "already exists" in error_message.lower():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email already registered"
+            )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Registration failed: {str(e)}"
+            detail=f"Registration failed: {error_message}"
         )
 
 
 @router.post("/login", response_model=Token)
 async def login(credentials: UserLogin, db: Client = Depends(get_db)):
     """
-    Login user and return JWT token
+    Login user with Supabase Auth and return session token
     """
     try:
-        # Get user by email
-        user_result = db.table('users').select('*').eq('email', credentials.email).execute()
+        # Sign in with Supabase Auth
+        auth_response = db.auth.sign_in_with_password({
+            "email": credentials.email,
+            "password": credentials.password
+        })
         
-        if not user_result.data or len(user_result.data) == 0:
+        if not auth_response.session:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid email or password",
+            )
+        
+        # Get user profile from public.users table
+        user_result = db.table('users').select('*').eq('id', auth_response.user.id).execute()
+        
+        if not user_result.data or len(user_result.data) == 0:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="User profile not found",
             )
         
         user = user_result.data[0]
         
-        # Verify password
-        if not verify_password(credentials.password, user.get('password_hash', '')):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid email or password",
-            )
-        
-        # Create access token
-        access_token = create_access_token(
-            data={"sub": user['id'], "email": credentials.email}
-        )
-        
         return Token(
-            access_token=access_token,
+            access_token=auth_response.session.access_token,
             token_type="bearer",
-            expires_in=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+            expires_in=auth_response.session.expires_in,
             user={
                 "id": user['id'],
                 "name": user['name'],
@@ -139,6 +147,8 @@ async def login(credentials: UserLogin, db: Client = Depends(get_db)):
     except HTTPException:
         raise
     except Exception as e:
+        # Log the error for debugging but return generic message
+        print(f"Login error: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password",

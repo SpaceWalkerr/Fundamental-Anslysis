@@ -167,6 +167,14 @@ export const stockApi = {
     // For now return empty array
     return [];
   },
+
+  getTechnicalIndicators: async (ticker: string, period: string = '1y', includeSignals: boolean = false) => {
+    return await fetchWithAuth(`/api/stocks/${ticker}/technicals?period=${period}&include_signals=${includeSignals}`);
+  },
+
+  getTradingSignals: async (ticker: string) => {
+    return await fetchWithAuth(`/api/stocks/${ticker}/signals`);
+  },
 };
 
 // Real API service for chat/Q&A
@@ -534,6 +542,56 @@ export const watchlistApi = {
   },
 };
 
+// Subscription/Payment API
+export const subscriptionApi = {
+  // Get available subscription plans
+  getPlans: async () => {
+    return await fetchWithAuth('/api/subscription-plans');
+  },
+
+  // Get current subscription status
+  getStatus: async () => {
+    return await fetchWithAuth('/api/subscription/status');
+  },
+
+  // Get usage for specific feature
+  getUsage: async (type: string) => {
+    return await fetchWithAuth(`/api/subscription/usage/${type}`);
+  },
+
+  // Create checkout session
+  createCheckout: async (priceId: string, billingCycle: string) => {
+    return await fetchWithAuth('/api/subscription/checkout', {
+      method: 'POST',
+      body: JSON.stringify({ price_id: priceId, billing_cycle: billingCycle }),
+    });
+  },
+
+  // Create portal session
+  createPortal: async (returnUrl: string) => {
+    return await fetchWithAuth('/api/subscription/portal', {
+      method: 'POST',
+      body: JSON.stringify({ return_url: returnUrl }),
+    });
+  },
+
+  // Cancel subscription
+  cancelSubscription: async (subscriptionId: string) => {
+    return await fetchWithAuth('/api/subscription/cancel', {
+      method: 'POST',
+      body: JSON.stringify({ subscription_id: subscriptionId }),
+    });
+  },
+
+  // Check feature access
+  checkFeature: async (featureName: string) => {
+    return await fetchWithAuth('/api/subscription/check-feature', {
+      method: 'POST',
+      body: JSON.stringify({ feature_name: featureName }),
+    });
+  },
+};
+
 // Export all APIs
 export const api = {
   auth: authApi,
@@ -543,4 +601,5 @@ export const api = {
   pdf: pdfApi,
   portfolio: portfolioApi,
   watchlists: watchlistApi,
+  subscription: subscriptionApi,
 };

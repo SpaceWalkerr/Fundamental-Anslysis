@@ -76,33 +76,38 @@ async def get_current_user(
     db: Client = Depends(get_db)
 ) -> Dict[str, Any]:
     """
-    Get current authenticated user from JWT token
+    Get current authenticated user from Supabase Auth token
     Usage: current_user = Depends(get_current_user)
     """
     token = credentials.credentials
     
     try:
-        payload = decode_token(token)
-        user_id: str = payload.get("sub")
+        # Validate token with Supabase Auth
+        user_response = db.auth.get_user(token)
         
-        if user_id is None:
+        if not user_response or not user_response.user:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid authentication credentials",
             )
         
-        # Get user from database
+        user_id = user_response.user.id
+        
+        # Get user profile from public.users table
         result = db.table('users').select('*').eq('id', user_id).single().execute()
         
         if not result.data:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="User not found",
+                detail="User profile not found",
             )
         
         return result.data
         
+    except HTTPException:
+        raise
     except Exception as e:
+        print(f"Token validation error: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials",
