@@ -6,6 +6,8 @@ import {
   Home,
   FileText,
   Filter,
+  Briefcase,
+  Eye,
   Clock,
   Settings,
   LogOut,
@@ -24,6 +26,8 @@ const navItems = [
   { name: "Home", icon: Home, href: "/dashboard", premium: false },
   { name: "New Analysis", icon: FileText, href: "/dashboard/analyze", premium: false },
   { name: "Stock Scanner", icon: Filter, href: "/dashboard/scanner", premium: true },
+  { name: "Portfolio", icon: Briefcase, href: "/dashboard/portfolio", premium: false },
+  { name: "Watchlist", icon: Eye, href: "/dashboard/watchlist", premium: false },
   { name: "History", icon: Clock, href: "/dashboard/history", premium: false },
   { name: "Settings", icon: Settings, href: "/dashboard/settings", premium: false },
 ];

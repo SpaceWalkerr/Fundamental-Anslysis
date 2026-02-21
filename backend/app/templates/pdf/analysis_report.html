@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Fundamental Analysis Report - {{ ticker }}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+            font-size: 11pt;
+            line-height: 1.6;
+            color: #1a1a1a;
+            padding: 20px;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 3px solid #2563eb;
+        }
+        
+        .header h1 {
+            font-size: 28pt;
+            color: #2563eb;
+            margin-bottom: 10px;
+        }
+        
+        .header .ticker {
+            font-size: 20pt;
+            font-weight: bold;
+            color: #1a1a1a;
+            margin-bottom: 5px;
+        }
+        
+        .header .company-name {
+            font-size: 14pt;
+            color: #666;
+            margin-bottom: 10px;
+        }
+        
+        .header .meta {
+            font-size: 9pt;
+            color: #999;
+        }
+        
+        .recommendation-box {
+            background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        .recommendation-box .label {
+            font-size: 10pt;
+            opacity: 0.9;
+            margin-bottom: 5px;
+        }
+        
+        .recommendation-box .value {
+            font-size: 24pt;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        
+        .recommendation-box .score {
+            font-size: 14pt;
+        }
+        
+        .section {
+            margin-bottom: 25px;
+            page-break-inside: avoid;
+        }
+        
+        .section-title {
+            font-size: 16pt;
+            font-weight: bold;
+            color: #2563eb;
+            margin-bottom: 15px;
+            padding-bottom: 5px;
+            border-bottom: 2px solid #e5e7eb;
+        }
+        
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .metric-card {
+            background: #f9fafb;
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 4px solid #2563eb;
+        }
+        
+        .metric-card .label {
+            font-size: 9pt;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        
+        .metric-card .value {
+            font-size: 16pt;
+            font-weight: bold;
+            color: #1a1a1a;
+        }
+        
+        .metric-card .change {
+            font-size: 9pt;
+            color: #059669;
+        }
+        
+        .metric-card .change.negative {
+            color: #dc2626;
+        }
+        
+        .list-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        .list-box {
+            background: #f9fafb;
+            padding: 15px;
+            border-radius: 6px;
+        }
+        
+        .list-box.strengths {
+            border-left: 4px solid #059669;
+        }
+        
+        .list-box.weaknesses {
+            border-left: 4px solid #dc2626;
+        }
+        
+        .list-box h3 {
+            font-size: 12pt;
+            margin-bottom: 10px;
+        }
+        
+        .list-box.strengths h3 {
+            color: #059669;
+        }
+        
+        .list-box.weaknesses h3 {
+            color: #dc2626;
+        }
+        
+        .list-box ul {
+            list-style: none;
+        }
+        
+        .list-box li {
+            padding: 5px 0;
+            padding-left: 20px;
+            position: relative;
+        }
+        
+        .list-box.strengths li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #059669;
+            font-weight: bold;
+        }
+        
+        .list-box.weaknesses li:before {
+            content: "✗";
+            position: absolute;
+            left: 0;
+            color: #dc2626;
+            font-weight: bold;
+        }
+        
+        .ai-analysis {
+            background: #fef3c7;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #f59e0b;
+        }
+        
+        .ai-analysis h3 {
+            color: #b45309;
+            font-size: 12pt;
+            margin-bottom: 10px;
+        }
+        
+        .ai-analysis p {
+            color: #78350f;
+            line-height: 1.8;
+        }
+        
+        .risk-badge {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 10pt;
+            font-weight: bold;
+        }
+        
+        .risk-badge.low {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        
+        .risk-badge.medium {
+            background: #fed7aa;
+            color: #9a3412;
+        }
+        
+        .risk-badge.high {
+            background: #fecaca;
+            color: #991b1b;
+        }
+        
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 2px solid #e5e7eb;
+            text-align: center;
+            font-size: 9pt;
+            color: #999;
+        }
+        
+        .disclaimer {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 20px;
+            font-size: 9pt;
+            color: #991b1b;
+        }
+        
+        .price-box {
+            background: #eff6ff;
+            padding: 10px 15px;
+            border-radius: 6px;
+            display: inline-block;
+            margin: 10px 0;
+        }
+        
+        .price-box .label {
+            font-size: 9pt;
+            color: #1e40af;
+        }
+        
+        .price-box .value {
+            font-size: 18pt;
+            font-weight: bold;
+            color: #1e3a8a;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <h1>Fundamental Analysis Report</h1>
+        <div class="ticker">{{ ticker }}</div>
+        <div class="company-name">{{ company_name }}</div>
+        <div class="price-box">
+            <div class="label">Current Price</div>
+            <div class="value">${{ "%.2f"|format(current_price) }}</div>
+        </div>
+        <div class="meta">Generated on {{ generated_at }}</div>
+    </div>
+    
+    <!-- Recommendation -->
+    <div class="recommendation-box">
+        <div class="label">RECOMMENDATION</div>
+        <div class="value">{{ recommendation }}</div>
+        <div class="score">Overall Score: {{ score }}/100</div>
+    </div>
+    
+    <!-- Key Metrics -->
+    <div class="section">
+        <h2 class="section-title">Key Financial Metrics</h2>
+        <div class="metrics-grid">
+            {% if metrics.pe_ratio %}
+            <div class="metric-card">
+                <div class="label">P/E Ratio</div>
+                <div class="value">{{ "%.2f"|format(metrics.pe_ratio) }}</div>
+            </div>
+            {% endif %}
+            
+            {% if metrics.eps %}
+            <div class="metric-card">
+                <div class="label">EPS (TTM)</div>
+                <div class="value">${{ "%.2f"|format(metrics.eps) }}</div>
+            </div>
+            {% endif %}
+            
+            {% if metrics.market_cap %}
+            <div class="metric-card">
+                <div class="label">Market Cap</div>
+                <div class="value">${{ "%.2fB"|format(metrics.market_cap / 1000000000) }}</div>
+            </div>
+            {% endif %}
+            
+            {% if metrics.revenue_growth %}
+            <div class="metric-card">
+                <div class="label">Revenue Growth</div>
+                <div class="value">{{ "%.1f"|format(metrics.revenue_growth) }}%</div>
+            </div>
+            {% endif %}
+            
+            {% if metrics.profit_margin %}
+            <div class="metric-card">
+                <div class="label">Profit Margin</div>
+                <div class="value">{{ "%.1f"|format(metrics.profit_margin) }}%</div>
+            </div>
+            {% endif %}
+            
+            {% if metrics.roe %}
+            <div class="metric-card">
+                <div class="label">ROE</div>
+                <div class="value">{{ "%.1f"|format(metrics.roe) }}%</div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Valuation -->
+    {% if valuation %}
+    <div class="section">
+        <h2 class="section-title">Valuation Analysis</h2>
+        <div class="metrics-grid">
+            {% if valuation.fair_value %}
+            <div class="metric-card">
+                <div class="label">Fair Value Estimate</div>
+                <div class="value">${{ "%.2f"|format(valuation.fair_value) }}</div>
+            </div>
+            {% endif %}
+            
+            {% if valuation.upside_potential %}
+            <div class="metric-card">
+                <div class="label">Upside Potential</div>
+                <div class="value">{{ "%.1f"|format(valuation.upside_potential) }}%</div>
+            </div>
+            {% endif %}
+            
+            {% if valuation.valuation_rating %}
+            <div class="metric-card">
+                <div class="label">Valuation Rating</div>
+                <div class="value">{{ valuation.valuation_rating }}</div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Strengths & Weaknesses -->
+    <div class="section">
+        <h2 class="section-title">Analysis Summary</h2>
+        <div class="list-section">
+            <div class="list-box strengths">
+                <h3>Strengths</h3>
+                <ul>
+                    {% for strength in strengths %}
+                    <li>{{ strength }}</li>
+                    {% endfor %}
+                    {% if not strengths %}
+                    <li>No specific strengths identified</li>
+                    {% endif %}
+                </ul>
+            </div>
+            
+            <div class="list-box weaknesses">
+                <h3>Weaknesses</h3>
+                <ul>
+                    {% for weakness in weaknesses %}
+                    <li>{{ weakness }}</li>
+                    {% endfor %}
+                    {% if not weaknesses %}
+                    <li>No specific weaknesses identified</li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <!-- AI Analysis -->
+    {% if ai_summary %}
+    <div class="section">
+        <h2 class="section-title">AI-Powered Insights</h2>
+        <div class="ai-analysis">
+            <h3>📊 Analysis Summary</h3>
+            <p>{{ ai_summary }}</p>
+        </div>
+        {% if ai_recommendation %}
+        <div class="ai-analysis" style="margin-top: 15px;">
+            <h3>💡 Investment Recommendation</h3>
+            <p>{{ ai_recommendation }}</p>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+    
+    <!-- Risk Assessment -->
+    <div class="section">
+        <h2 class="section-title">Risk Assessment</h2>
+        <div>
+            <strong>Risk Level:</strong> 
+            <span class="risk-badge {{ risk_level|lower }}">{{ risk_level|upper }}</span>
+        </div>
+        {% if risk_factors %}
+        <div style="margin-top: 15px;">
+            <strong>Key Risk Factors:</strong>
+            <ul style="margin-left: 20px; margin-top: 10px;">
+                {% for factor in risk_factors %}
+                <li>{{ factor }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+    </div>
+    
+    <!-- Disclaimer -->
+    <div class="disclaimer">
+        <strong>⚠️ Disclaimer:</strong> This report is for informational purposes only and does not constitute financial advice. 
+        Always conduct your own research and consult with a qualified financial advisor before making investment decisions. 
+        Past performance does not guarantee future results.
+    </div>
+    
+    <!-- Footer -->
+    <div class="footer">
+        <div>Generated by {{ app_name }}</div>
+        <div>© {{ current_year }} All rights reserved</div>
+    </div>
+</body>
+</html>

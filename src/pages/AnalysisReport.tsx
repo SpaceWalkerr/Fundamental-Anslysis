@@ -6,6 +6,8 @@ import ChatMessage from "@/components/ChatMessage";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useToast } from "@/hooks/use-toast";
+import { api, downloadBlob } from "@/lib/api";
 import {
   ArrowLeft,
   Download,
@@ -74,8 +76,62 @@ const chatMessages = [
 
 const AnalysisReport = () => {
   const { id } = useParams();
+  const { toast } = useToast();
   const [messages, setMessages] = useState(chatMessages);
   const [inputValue, setInputValue] = useState("");
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExportPDF = async () => {
+    setIsExporting(true);
+    try {
+      // Prepare analysis data for PDF
+      const analysisData = {
+        ticker: reportData.ticker,
+        company_name: reportData.company,
+        current_price: 175.50, // Mock price
+        recommendation: reportData.overallScore >= 8 ? "BUY" : reportData.overallScore >= 6 ? "HOLD" : "SELL",
+        score: reportData.overallScore * 10, // Convert to 100 scale
+        metrics: {
+          pe_ratio: 28.5,
+          eps: 6.15,
+          market_cap: "2.8T",
+          revenue_growth: 2.8,
+          profit_margin: 25.3,
+          roe: 89.6,
+        },
+        valuation: {
+          fair_value: 185.0,
+          upside_potential: 5.4,
+          valuation_rating: "Fair Value",
+        },
+        strengths: reportData.strengths,
+        weaknesses: reportData.redFlags,
+        ai_summary: reportData.summary,
+        ai_recommendation: reportData.investmentAssessment,
+        risk_level: "Medium",
+        risk_factors: reportData.redFlags,
+      };
+
+      // Call PDF export API
+      const blob = await api.pdf.exportAnalysis(reportData.ticker, analysisData);
+      
+      // Download the PDF
+      downloadBlob(blob, `analysis_${reportData.ticker}.pdf`);
+      
+      toast({
+        title: "PDF Exported",
+        description: "Your analysis report has been downloaded successfully.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Export Failed",
+        description: error.message || "Failed to export PDF. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const handleSendMessage = () => {
     if (!inputValue.trim()) return;
@@ -152,9 +208,14 @@ const AnalysisReport = () => {
                   <Share2 className="w-4 h-4" />
                   Share
                 </Button>
-                <Button size="sm" className="gap-2 bg-gradient-primary">
+                <Button 
+                  size="sm" 
+                  className="gap-2 bg-gradient-primary"
+                  onClick={handleExportPDF}
+                  disabled={isExporting}
+                >
                   <Download className="w-4 h-4" />
-                  Export PDF
+                  {isExporting ? "Exporting..." : "Export PDF"}
                 </Button>
               </div>
             </div>

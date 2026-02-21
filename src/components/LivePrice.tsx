@@ -1,7 +1,7 @@
-"""
-Live Price Display Component
-Shows real-time price updates with WebSocket
-"""
+/**
+ * Live Price Display Component
+ * Shows real-time price updates with WebSocket
+ */
 import { useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';

@@ -4,6 +4,8 @@ import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
+import { api, downloadBlob } from "@/lib/api";
 import {
   Select,
   SelectContent,
@@ -21,6 +23,7 @@ import {
   TrendingUp,
   TrendingDown,
   ArrowUpDown,
+  Download,
 } from "lucide-react";
 
 interface FilterItem {
@@ -122,6 +125,7 @@ const mockResults = [
 ];
 
 const StockScanner = () => {
+  const { toast } = useToast();
   const [filters, setFilters] = useState<FilterItem[]>([
     { id: "1", field: "sector", operator: "eq", value: "Technology" },
     { id: "2", field: "market_cap", operator: "gte", value: "10000000000" },
@@ -129,6 +133,7 @@ const StockScanner = () => {
   const [results, setResults] = useState(mockResults);
   const [sortField, setSortField] = useState("matchScore");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const [isExporting, setIsExporting] = useState(false);
 
   const addFilter = () => {
     const newFilter: FilterItem = {
@@ -165,6 +170,71 @@ const StockScanner = () => {
     } else {
       setSortField(field);
       setSortOrder("desc");
+    }
+  };
+
+  const handleExportPDF = async () => {
+    if (results.length === 0) {
+      toast({
+        title: "No Results",
+        description: "Run a scan first to get results to export.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsExporting(true);
+    try {
+      // Calculate average score
+      const avgScore = results.reduce((sum, stock) => sum + stock.matchScore, 0) / results.length;
+
+      // Get unique sectors and counts
+      const sectorCounts: Record<string, number> = {};
+      results.forEach((stock) => {
+        sectorCounts[stock.sector] = (sectorCounts[stock.sector] || 0) + 1;
+      });
+      const topSectors = Object.entries(sectorCounts)
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5);
+
+      // Prepare screening data
+      const screeningData = {
+        description: `Custom stock screening with ${filters.length} filter(s) applied`,
+        total_matches: results.length,
+        stocks: results.map((stock) => ({
+          ticker: stock.ticker,
+          name: stock.company,
+          price: stock.price,
+          market_cap: stock.marketCap,
+          pe_ratio: stock.peRatio,
+          score: stock.matchScore,
+        })),
+        filters: filters.map((f) => ({
+          field: filterFields.find((ff) => ff.value === f.field)?.label || f.field,
+          operator: operators.find((op) => op.value === f.operator)?.label || f.operator,
+          value: f.value,
+        })),
+        average_score: avgScore,
+        top_sectors: topSectors,
+      };
+
+      // Export PDF
+      const blob = await api.pdf.exportScreening("Stock Screening Results", screeningData);
+      downloadBlob(blob, `screening_results.pdf`);
+
+      toast({
+        title: "PDF Exported",
+        description: "Your screening results have been downloaded successfully.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Export Failed",
+        description: error.message || "Failed to export PDF. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -321,6 +391,16 @@ const StockScanner = () => {
             <h2 className="font-semibold text-foreground">
               Results ({results.length} matches)
             </h2>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={handleExportPDF}
+              disabled={isExporting || results.length === 0}
+            >
+              <Download className="w-4 h-4" />
+              {isExporting ? "Exporting..." : "Export PDF"}
+            </Button>
           </div>
 
           <div className="overflow-x-auto">

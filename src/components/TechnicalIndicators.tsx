@@ -1,7 +1,7 @@
-"""
-Technical Indicators Chart Component
-Displays price charts with technical indicator overlays
-"""
+/**
+ * Technical Indicators Chart Component
+ * Displays price charts with technical indicator overlays
+ */
 import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -47,9 +47,9 @@ export function TechnicalIndicators({ ticker }: TechnicalIndicatorsProps) {
   const fetchIndicators = async () => {
     setLoading(true);
     try {
-      const response = await api.get(`/stocks/${ticker}/technicals?period=${period}&include_signals=true`);
-      setIndicators(response.data.indicators);
-      setSignals(response.data.signals);
+      const response = await api.stocks.getTechnicalIndicators(ticker, period, true);
+      setIndicators(response.indicators);
+      setSignals(response.signals);
     } catch (error) {
       console.error('Error fetching indicators:', error);
     } finally {
@@ -246,8 +246,8 @@ export function IndicatorBadge({ ticker }: { ticker: string }) {
   useEffect(() => {
     const fetchSignal = async () => {
       try {
-        const response = await api.get(`/stocks/${ticker}/signals`);
-        setSignal(response.data.overall_signal);
+        const response = await api.stocks.getTradingSignals(ticker);
+        setSignal(response.overall_signal);
       } catch (error) {
         console.error('Error fetching signal:', error);
       } finally {

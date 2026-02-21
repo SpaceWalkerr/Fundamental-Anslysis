@@ -14,6 +14,8 @@ import Dashboard from "./pages/Dashboard";
 import NewAnalysis from "./pages/NewAnalysis";
 import AnalysisReport from "./pages/AnalysisReport";
 import StockScanner from "./pages/StockScanner";
+import Portfolio from "./pages/Portfolio";
+import Watchlist from "./pages/Watchlist";
 import History from "./pages/History";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
@@ -85,6 +87,22 @@ const AppContent = () => {
         element={
           <ProtectedRoute>
             <StockScanner />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/dashboard/portfolio"
+        element={
+          <ProtectedRoute>
+            <Portfolio />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/dashboard/watchlist"
+        element={
+          <ProtectedRoute>
+            <Watchlist />
           </ProtectedRoute>
         }
       />

@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Technical Analysis Report - {{ ticker }}</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+            font-size: 11pt;
+            line-height: 1.6;
+            color: #1a1a1a;
+            padding: 20px;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 3px solid #10b981;
+        }
+        
+        .header h1 {
+            font-size: 28pt;
+            color: #10b981;
+            margin-bottom: 10px;
+        }
+        
+        .header .ticker {
+            font-size: 20pt;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        
+        .signal-box {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        .signal-box.sell {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        }
+        
+        .signal-box.neutral {
+            background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+        }
+        
+        .signal-box .label {
+            font-size: 11pt;
+            opacity: 0.9;
+            margin-bottom: 5px;
+        }
+        
+        .signal-box .value {
+            font-size: 28pt;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        
+        .signal-box .strength {
+            font-size: 14pt;
+        }
+        
+        .section {
+            margin-bottom: 25px;
+            page-break-inside: avoid;
+        }
+        
+        .section-title {
+            font-size: 16pt;
+            font-weight: bold;
+            color: #10b981;
+            margin-bottom: 15px;
+            padding-bottom: 5px;
+            border-bottom: 2px solid #e5e7eb;
+        }
+        
+        .indicators-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+        }
+        
+        .indicator-card {
+            background: #f9fafb;
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 4px solid #10b981;
+        }
+        
+        .indicator-card .name {
+            font-size: 10pt;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        
+        .indicator-card .value {
+            font-size: 16pt;
+            font-weight: bold;
+            color: #1a1a1a;
+        }
+        
+        .signals-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        .signals-box {
+            background: #f9fafb;
+            padding: 15px;
+            border-radius: 6px;
+        }
+        
+        .signals-box.buy {
+            border-left: 4px solid #10b981;
+        }
+        
+        .signals-box.sell {
+            border-left: 4px solid #ef4444;
+        }
+        
+        .signals-box h3 {
+            font-size: 12pt;
+            margin-bottom: 10px;
+        }
+        
+        .signals-box.buy h3 {
+            color: #10b981;
+        }
+        
+        .signals-box.sell h3 {
+            color: #ef4444;
+        }
+        
+        .signals-box ul {
+            list-style: none;
+        }
+        
+        .signals-box li {
+            padding: 6px 0;
+            padding-left: 20px;
+            position: relative;
+            font-size: 10pt;
+        }
+        
+        .signals-box.buy li:before {
+            content: "🡱";
+            position: absolute;
+            left: 0;
+            color: #10b981;
+            font-weight: bold;
+        }
+        
+        .signals-box.sell li:before {
+            content: "🡳";
+            position: absolute;
+            left: 0;
+            color: #ef4444;
+            font-weight: bold;
+        }
+        
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 2px solid #e5e7eb;
+            text-align: center;
+            font-size: 9pt;
+            color: #999;
+        }
+        
+        .disclaimer {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 20px;
+            font-size: 9pt;
+            color: #991b1b;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <h1>📈 Technical Analysis Report</h1>
+        <div class="ticker">{{ ticker }}</div>
+        <div style="font-size: 14pt; color: #666;">Current Price: ${{ "%.2f"|format(current_price) }}</div>
+        <div style="font-size: 9pt; color: #999; margin-top: 10px;">
+            Generated on {{ generated_at }} | Period: {{ period }}
+        </div>
+    </div>
+    
+    <!-- Overall Signal -->
+    {% set signal_class = "buy" if "BUY" in overall_signal else ("sell" if "SELL" in overall_signal else "neutral") %}
+    <div class="signal-box {{ signal_class }}">
+        <div class="label">OVERALL SIGNAL</div>
+        <div class="value">{{ overall_signal }}</div>
+        <div class="strength">Signal Strength: {{ signal_strength }}%</div>
+    </div>
+    
+    <!-- Key Indicators -->
+    <div class="section">
+        <h2 class="section-title">Key Technical Indicators</h2>
+        <div class="indicators-grid">
+            {% if indicators.rsi %}
+            <div class="indicator-card">
+                <div class="name">RSI (14)</div>
+                <div class="value">{{ "%.2f"|format(indicators.rsi) }}</div>
+            </div>
+            {% endif %}
+            
+            {% if indicators.sma_20 %}
+            <div class="indicator-card">
+                <div class="name">SMA (20)</div>
+                <div class="value">${{ "%.2f"|format(indicators.sma_20) }}</div>
+            </div>
+            {% endif %}
+            
+            {% if indicators.sma_50 %}
+            <div class="indicator-card">
+                <div class="name">SMA (50)</div>
+                <div class="value">${{ "%.2f"|format(indicators.sma_50) }}</div>
+            </div>
+            {% endif %}
+            
+            {% if indicators.sma_200 %}
+            <div class="indicator-card">
+                <div class="name">SMA (200)</div>
+                <div class="value">${{ "%.2f"|format(indicators.sma_200) }}</div>
+            </div>
+            {% endif %}
+            
+            {% if indicators.macd %}
+            <div class="indicator-card">
+                <div class="name">MACD Line</div>
+                <div class="value">{{ "%.2f"|format(indicators.macd) }}</div>
+            </div>
+            {% endif %}
+            
+            {% if indicators.macd_signal %}
+            <div class="indicator-card">
+                <div class="name">MACD Signal</div>
+                <div class="value">{{ "%.2f"|format(indicators.macd_signal) }}</div>
+            </div>
+            {% endif %}
+            
+            {% if indicators.bb_upper %}
+            <div class="indicator-card">
+                <div class="name">Bollinger Upper</div>
+                <div class="value">${{ "%.2f"|format(indicators.bb_upper) }}</div>
+            </div>
+            {% endif %}
+            
+            {% if indicators.bb_lower %}
+            <div class="indicator-card">
+                <div class="name">Bollinger Lower</div>
+                <div class="value">${{ "%.2f"|format(indicators.bb_lower) }}</div>
+            </div>
+            {% endif %}
+            
+            {% if indicators.stoch_k %}
+            <div class="indicator-card">
+                <div class="name">Stochastic %K</div>
+                <div class="value">{{ "%.2f"|format(indicators.stoch_k) }}</div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Trading Signals -->
+    <div class="section">
+        <h2 class="section-title">Trading Signals</h2>
+        <div class="signals-section">
+            <!-- Buy Signals -->
+            <div class="signals-box buy">
+                <h3>📈 Buy Signals ({{ buy_signals|length }})</h3>
+                <ul>
+                    {% for signal in buy_signals %}
+                    <li>{{ signal }}</li>
+                    {% endfor %}
+                    {% if not buy_signals %}
+                    <li>No buy signals detected</li>
+                    {% endif %}
+                </ul>
+            </div>
+            
+            <!-- Sell Signals -->
+            <div class="signals-box sell">
+                <h3>📉 Sell Signals ({{ sell_signals|length }})</h3>
+                <ul>
+                    {% for signal in sell_signals %}
+                    <li>{{ signal }}</li>
+                    {% endfor %}
+                    {% if not sell_signals %}
+                    <li>No sell signals detected</li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Indicator Explanations -->
+    <div class="section">
+        <h2 class="section-title">Understanding the Indicators</h2>
+        <div style="background: #f9fafb; padding: 15px; border-radius: 6px; font-size: 10pt;">
+            <p style="margin-bottom: 10px;"><strong>RSI (Relative Strength Index):</strong> Measures momentum. Below 30 = oversold (potential buy), above 70 = overbought (potential sell).</p>
+            <p style="margin-bottom: 10px;"><strong>SMA (Simple Moving Average):</strong> Average price over period. Price above SMA is bullish, below is bearish.</p>
+            <p style="margin-bottom: 10px;"><strong>MACD (Moving Average Convergence Divergence):</strong> Trend-following indicator. MACD crossing above signal line is bullish.</p>
+            <p style="margin-bottom: 10px;"><strong>Bollinger Bands:</strong> Volatility bands. Price at upper band = overbought, at lower band = oversold.</p>
+            <p><strong>Stochastic:</strong> Momentum oscillator. Below 20 = oversold, above 80 = overbought.</p>
+        </div>
+    </div>
+    
+    <!-- Disclaimer -->
+    <div class="disclaimer">
+        <strong>⚠️ Disclaimer:</strong> Technical analysis is just one tool for investment decisions. This report does not constitute financial advice.
+        Trading involves risk and you should never trade with money you cannot afford to lose. Past patterns do not guarantee future results.
+        Always use risk management and consult with a qualified financial advisor.
+    </div>
+    
+    <!-- Footer -->
+    <div class="footer">
+        <div>Generated by {{ app_name }}</div>
+        <div>© {{ current_year }} All rights reserved</div>
+    </div>
+</body>
+</html>

@@ -1,9 +1,8 @@
-"""
-Real-Time Market Data Hook
-Manages WebSocket connection for live price updates
-"""
+/**
+ * Real-Time Market Data Hook
+ * Manages WebSocket connection for live price updates
+ */
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { useAuthStore } from '@/store/useAuthStore';
 
 interface PriceUpdate {
   ticker: string;
@@ -31,9 +30,8 @@ export function useMarketData() {
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const subscribedTickersRef = useRef<Set<string>>(new Set());
   
-  const token = useAuthStore((state) => state.token);
-  
   const connect = useCallback(() => {
+    const token = localStorage.getItem('auth_token');
     if (!token) return;
     
     const ws = new WebSocket(
@@ -92,7 +90,7 @@ export function useMarketData() {
     };
     
     wsRef.current = ws;
-  }, [token]);
+  }, []);
   
   const disconnect = useCallback(() => {
     if (reconnectTimeoutRef.current) {
