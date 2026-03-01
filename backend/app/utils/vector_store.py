@@ -3,9 +3,6 @@ Vector Store Service using ChromaDB
 Handles document embeddings and semantic search for RAG
 """
 from typing import List, Dict, Optional
-import chromadb
-from chromadb.config import Settings
-from sentence_transformers import SentenceTransformer
 import os
 import uuid
 from datetime import datetime
@@ -29,6 +26,17 @@ class VectorStoreService:
             persist_directory: Directory to persist ChromaDB data
             embedding_model: Sentence transformer model name
         """
+        # Import chromadb only when needed
+        try:
+            import chromadb
+            from chromadb.config import Settings
+            from sentence_transformers import SentenceTransformer
+        except ImportError as e:
+            raise ImportError(
+                "ChromaDB and sentence-transformers are required for document analysis features. "
+                "Install with: pip install chromadb sentence-transformers"
+            ) from e
+        
         self.persist_directory = persist_directory
         
         # Create directory if it doesn't exist

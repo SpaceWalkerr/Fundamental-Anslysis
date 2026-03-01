@@ -7,7 +7,8 @@ from typing import List, Optional
 from datetime import datetime
 from uuid import UUID
 
-from app.core.dependencies import get_current_user, get_db
+from app.core.security import get_current_user
+from app.db.database import get_db
 from supabase import Client
 
 router = APIRouter()

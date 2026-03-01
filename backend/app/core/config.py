@@ -15,8 +15,8 @@ class Settings(BaseSettings):
     APP_NAME: str = "FundaVision API"
     APP_VERSION: str = "1.0.0"
     ENVIRONMENT: str = "development"
-    DEBUG: bool = True
-    API_PORT: int = 8000
+    DEBUG: bool = False
+    API_PORT: int = 8080
     FRONTEND_URL: str = "http://localhost:5173"
     
     # Supabase

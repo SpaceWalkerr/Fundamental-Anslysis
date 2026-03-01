@@ -6,7 +6,8 @@ from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
 
-from app.core.dependencies import get_current_user, get_db
+from app.core.security import get_current_user
+from app.db.database import get_db
 from app.utils.historical_data_service import get_historical_data_service
 from supabase import Client
 

@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 import time
 
 from app.core.config import settings
-from app.api.endpoints import auth, analysis, chat, stocks, reports, alerts, market_ws, history, technicals, payments, pdf_export, portfolios, watchlists
+from app.api.endpoints import auth, analysis, chat, stocks, reports, alerts, market_ws, history, technicals, payments, portfolios, watchlists  # pdf_export disabled (missing system deps)
 from app.db.database import init_db
 from app.utils.market_data_streamer import get_market_streamer, get_alert_checker
 
@@ -29,8 +29,8 @@ async def lifespan(app: FastAPI):
     await market_streamer.start()
     print("📡 Market data streamer started")
     
-    from app.db.database import get_db_client
-    alert_checker = get_alert_checker(get_db_client())
+    from app.db.database import get_supabase_client
+    alert_checker = get_alert_checker(get_supabase_client())
     await alert_checker.start()
     print("🔔 Price alert checker started")
     
@@ -125,7 +125,7 @@ app.include_router(alerts.router, prefix="/api/alerts", tags=["Alerts"])
 app.include_router(history.router, prefix="/api", tags=["Historical Data"])
 app.include_router(technicals.router, prefix="/api", tags=["Technical Analysis"])
 app.include_router(payments.router, prefix="/api", tags=["Payments"])
-app.include_router(pdf_export.router, prefix="/api/pdf", tags=["PDF Export"])
+# app.include_router(pdf_export.router, prefix="/api/pdf", tags=["PDF Export"])  # Disabled - missing system deps
 app.include_router(portfolios.router, prefix="/api/portfolios", tags=["Portfolio Tracking"])
 app.include_router(watchlists.router, prefix="/api/watchlists", tags=["Watchlist Manager"])
 app.include_router(market_ws.router, prefix="/api", tags=["Market Data"])

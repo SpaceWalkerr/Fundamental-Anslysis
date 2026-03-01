@@ -31,7 +31,7 @@ mkdir -p uploads
 mkdir -p data/chroma
 
 # Start the server
-echo "✨ Starting FastAPI server on http://localhost:8000"
-echo "📚 API Docs: http://localhost:8000/api/docs"
+echo "✨ Starting FastAPI server on http://localhost:8080"
+echo "📚 API Docs: http://localhost:8080/api/docs"
 echo ""
 python -m app.main

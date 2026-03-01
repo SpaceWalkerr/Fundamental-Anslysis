@@ -9,7 +9,8 @@ from datetime import datetime, date
 from pydantic import BaseModel, Field
 from decimal import Decimal
 
-from ..dependencies import get_current_user, get_supabase_client
+from app.core.security import get_current_user
+from app.db.database import get_db # get_current_user, get_db
 from supabase import Client
 
 router = APIRouter()
@@ -98,7 +99,7 @@ class PortfolioSummary(BaseModel):
 async def create_portfolio(
     portfolio: PortfolioCreate,
     current_user: dict = Depends(get_current_user),
-    supabase: Client = Depends(get_supabase_client)
+    supabase: Client = Depends(get_db)
 ):
     """
     Create a new portfolio
@@ -127,7 +128,7 @@ async def create_portfolio(
 @router.get("/portfolios", response_model=List[PortfolioResponse])
 async def get_portfolios(
     current_user: dict = Depends(get_current_user),
-    supabase: Client = Depends(get_supabase_client)
+    supabase: Client = Depends(get_db)
 ):
     """
     Get all portfolios for the current user
@@ -147,7 +148,7 @@ async def get_portfolios(
 async def get_portfolio(
     portfolio_id: str,
     current_user: dict = Depends(get_current_user),
-    supabase: Client = Depends(get_supabase_client)
+    supabase: Client = Depends(get_db)
 ):
     """
     Get a specific portfolio by ID
@@ -173,7 +174,7 @@ async def update_portfolio(
     portfolio_id: str,
     portfolio: PortfolioUpdate,
     current_user: dict = Depends(get_current_user),
-    supabase: Client = Depends(get_supabase_client)
+    supabase: Client = Depends(get_db)
 ):
     """
     Update a portfolio
@@ -211,7 +212,7 @@ async def update_portfolio(
 async def delete_portfolio(
     portfolio_id: str,
     current_user: dict = Depends(get_current_user),
-    supabase: Client = Depends(get_supabase_client)
+    supabase: Client = Depends(get_db)
 ):
     """
     Delete a portfolio and all its holdings/transactions
@@ -242,7 +243,7 @@ async def add_transaction(
     portfolio_id: str,
     transaction: TransactionCreate,
     current_user: dict = Depends(get_current_user),
-    supabase: Client = Depends(get_supabase_client)
+    supabase: Client = Depends(get_db)
 ):
     """
     Add a transaction to a portfolio
@@ -288,7 +289,7 @@ async def get_transactions(
     transaction_type: Optional[str] = Query(None, description="Filter by type"),
     limit: int = Query(100, ge=1, le=500),
     current_user: dict = Depends(get_current_user),
-    supabase: Client = Depends(get_supabase_client)
+    supabase: Client = Depends(get_db)
 ):
     """
     Get transactions for a portfolio with optional filters
@@ -327,7 +328,7 @@ async def delete_transaction(
     portfolio_id: str,
     transaction_id: str,
     current_user: dict = Depends(get_current_user),
-    supabase: Client = Depends(get_supabase_client)
+    supabase: Client = Depends(get_db)
 ):
     """
     Delete a transaction (Note: Does NOT automatically recalculate holdings)
@@ -366,7 +367,7 @@ async def get_holdings(
     portfolio_id: str,
     include_prices: bool = Query(True, description="Include current prices"),
     current_user: dict = Depends(get_current_user),
-    supabase: Client = Depends(get_supabase_client)
+    supabase: Client = Depends(get_db)
 ):
     """
     Get all holdings for a portfolio with current prices and gains/losses
@@ -389,7 +390,7 @@ async def get_holdings(
         
         # Fetch current prices if requested
         if include_prices and holdings:
-            from ..utils.market_data import get_market_data
+            from app.utils.market_data import get_market_data
             
             tickers = [h["ticker"] for h in holdings]
             prices = await get_market_data(tickers)
@@ -421,7 +422,7 @@ async def get_holding(
     portfolio_id: str,
     ticker: str,
     current_user: dict = Depends(get_current_user),
-    supabase: Client = Depends(get_supabase_client)
+    supabase: Client = Depends(get_db)
 ):
     """
     Get a specific holding in a portfolio
@@ -446,7 +447,7 @@ async def get_holding(
         holding = result.data[0]
         
         # Fetch current price
-        from ..utils.market_data import get_market_data
+        from app.utils.market_data import get_market_data
         
         prices = await get_market_data([ticker])
         if ticker.upper() in prices:
@@ -472,7 +473,7 @@ async def update_holding_notes(
     ticker: str,
     notes: str,
     current_user: dict = Depends(get_current_user),
-    supabase: Client = Depends(get_supabase_client)
+    supabase: Client = Depends(get_db)
 ):
     """
     Update notes for a holding
@@ -510,7 +511,7 @@ async def update_holding_notes(
 async def get_portfolio_summary(
     portfolio_id: str,
     current_user: dict = Depends(get_current_user),
-    supabase: Client = Depends(get_supabase_client)
+    supabase: Client = Depends(get_db)
 ):
     """
     Get portfolio summary with totals, gains/losses, and analytics
@@ -542,7 +543,7 @@ async def get_portfolio_summary(
             )
         
         # Fetch current prices
-        from ..utils.market_data import get_market_data
+        from app.utils.market_data import get_market_data
         
         tickers = [h["ticker"] for h in holdings]
         prices = await get_market_data(tickers)
@@ -606,7 +607,7 @@ async def get_portfolio_summary(
 async def get_portfolio_analytics(
     portfolio_id: str,
     current_user: dict = Depends(get_current_user),
-    supabase: Client = Depends(get_supabase_client)
+    supabase: Client = Depends(get_db)
 ):
     """
     Get detailed portfolio analytics including sector allocation,
@@ -650,8 +651,8 @@ async def get_portfolio_analytics(
             }
         
         # Fetch current prices
-        from ..utils.market_data import get_market_data
-        from ..utils.portfolio_analytics import calculate_portfolio_metrics
+        from app.utils.market_data import get_market_data
+        from app.utils.portfolio_analytics import calculate_portfolio_metrics
         
         tickers = [h["ticker"] for h in holdings]
         prices = await get_market_data(tickers)
@@ -675,7 +676,7 @@ async def get_portfolio_performance(
     portfolio_id: str,
     period: str = Query("all_time", regex="^(all_time|1y|3m|1m|1w)$"),
     current_user: dict = Depends(get_current_user),
-    supabase: Client = Depends(get_supabase_client)
+    supabase: Client = Depends(get_db)
 ):
     """
     Get portfolio performance metrics for a specific time period
@@ -713,7 +714,7 @@ async def get_portfolio_performance(
         
         snapshots = snapshots_result.data or []
         
-        from ..utils.portfolio_analytics import calculate_performance_over_time
+        from app.utils.portfolio_analytics import calculate_performance_over_time
         
         performance = calculate_performance_over_time(snapshots)
         performance["period"] = period
@@ -730,7 +731,7 @@ async def get_portfolio_performance(
 async def get_realized_gains(
     portfolio_id: str,
     current_user: dict = Depends(get_current_user),
-    supabase: Client = Depends(get_supabase_client)
+    supabase: Client = Depends(get_db)
 ):
     """
     Calculate realized gains/losses from sell transactions
@@ -751,7 +752,7 @@ async def get_realized_gains(
         
         transactions = transactions_result.data or []
         
-        from ..utils.portfolio_analytics import calculate_realized_gains
+        from app.utils.portfolio_analytics import calculate_realized_gains
         
         realized = calculate_realized_gains(transactions)
         

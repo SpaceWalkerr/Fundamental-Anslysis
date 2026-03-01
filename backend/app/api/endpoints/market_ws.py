@@ -5,7 +5,6 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, Query
 from typing import List, Optional
 import json
 
-from app.core.dependencies import get_current_user_ws
 from app.utils.market_data_streamer import get_market_streamer
 
 router = APIRouter()

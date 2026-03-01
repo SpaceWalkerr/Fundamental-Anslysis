@@ -9,8 +9,9 @@ from typing import Optional, List
 from pydantic import BaseModel, EmailStr
 import stripe
 
-from ..dependencies import get_current_user, get_supabase_client
-from ..utils.stripe_service import StripeService, get_stripe_service
+from app.core.security import get_current_user
+from app.db.database import get_db
+from app.utils.stripe_service import StripeService, get_stripe_service
 from supabase import Client
 
 router = APIRouter()
@@ -85,7 +86,7 @@ class PaymentHistoryResponse(BaseModel):
 
 @router.get("/subscription-plans", response_model=List[SubscriptionPlanResponse])
 async def get_subscription_plans(
-    supabase: Client = Depends(get_supabase_client)
+    supabase: Client = Depends(get_db)
 ):
     """
     Get all available subscription plans
@@ -131,7 +132,7 @@ async def get_subscription_plans(
 @router.get("/subscription/status", response_model=SubscriptionStatusResponse)
 async def get_subscription_status(
     current_user: dict = Depends(get_current_user),
-    supabase: Client = Depends(get_supabase_client)
+    supabase: Client = Depends(get_db)
 ):
     """
     Get current user's subscription status and plan details
@@ -158,7 +159,7 @@ async def get_subscription_status(
 async def create_checkout_session(
     request: CheckoutSessionRequest,
     current_user: dict = Depends(get_current_user),
-    supabase: Client = Depends(get_supabase_client)
+    supabase: Client = Depends(get_db)
 ):
     """
     Create a Stripe Checkout session for subscribing to a plan
@@ -202,7 +203,7 @@ async def create_checkout_session(
 async def create_portal_session(
     return_url: Optional[str] = None,
     current_user: dict = Depends(get_current_user),
-    supabase: Client = Depends(get_supabase_client)
+    supabase: Client = Depends(get_db)
 ):
     """
     Create a Stripe Customer Portal session for managing subscription
@@ -234,7 +235,7 @@ async def create_portal_session(
 async def cancel_subscription(
     request: CancelSubscriptionRequest,
     current_user: dict = Depends(get_current_user),
-    supabase: Client = Depends(get_supabase_client)
+    supabase: Client = Depends(get_db)
 ):
     """
     Cancel user's subscription
@@ -270,7 +271,7 @@ async def cancel_subscription(
 async def check_feature_access(
     request: FeatureAccessRequest,
     current_user: dict = Depends(get_current_user),
-    supabase: Client = Depends(get_supabase_client)
+    supabase: Client = Depends(get_db)
 ):
     """
     Check if user has access to a specific premium feature
@@ -304,7 +305,7 @@ async def check_feature_access(
 async def check_usage_limit(
     limit_type: str,
     current_user: dict = Depends(get_current_user),
-    supabase: Client = Depends(get_supabase_client)
+    supabase: Client = Depends(get_db)
 ):
     """
     Check user's usage against their plan limits
@@ -339,7 +340,7 @@ async def check_usage_limit(
 async def increment_usage(
     usage_type: str,
     current_user: dict = Depends(get_current_user),
-    supabase: Client = Depends(get_supabase_client)
+    supabase: Client = Depends(get_db)
 ):
     """
     Increment usage counter (internal endpoint, typically called by other services)
@@ -373,7 +374,7 @@ async def increment_usage(
 async def get_payment_history(
     limit: int = 10,
     current_user: dict = Depends(get_current_user),
-    supabase: Client = Depends(get_supabase_client)
+    supabase: Client = Depends(get_db)
 ):
     """
     Get user's payment history
@@ -400,7 +401,7 @@ async def get_payment_history(
 async def stripe_webhook(
     request: Request,
     stripe_signature: str = Header(None, alias="stripe-signature"),
-    supabase: Client = Depends(get_supabase_client)
+    supabase: Client = Depends(get_db)
 ):
     """
     Handle Stripe webhook events

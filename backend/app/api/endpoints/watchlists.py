@@ -8,9 +8,10 @@ from typing import List, Optional
 from datetime import datetime
 from pydantic import BaseModel, Field
 
-from ..dependencies import get_current_user, get_supabase_client
+from app.core.security import get_current_user
+from app.db.database import get_db # get_current_user, get_db
 from supabase import Client
-from ..utils.watchlist_analytics import WatchlistAnalytics
+from app.utils.watchlist_analytics import WatchlistAnalytics
 
 router = APIRouter()
 
@@ -84,7 +85,7 @@ class WatchlistItemResponse(BaseModel):
 async def create_watchlist(
     watchlist: WatchlistCreate,
     current_user: dict = Depends(get_current_user),
-    supabase: Client = Depends(get_supabase_client)
+    supabase: Client = Depends(get_db)
 ):
     """
     Create a new watchlist
@@ -121,7 +122,7 @@ async def create_watchlist(
 @router.get("/watchlists", response_model=List[WatchlistResponse])
 async def get_watchlists(
     current_user: dict = Depends(get_current_user),
-    supabase: Client = Depends(get_supabase_client)
+    supabase: Client = Depends(get_db)
 ):
     """
     Get all watchlists for the current user with item counts
@@ -142,7 +143,7 @@ async def get_watchlists(
 async def get_watchlist(
     watchlist_id: str,
     current_user: dict = Depends(get_current_user),
-    supabase: Client = Depends(get_supabase_client)
+    supabase: Client = Depends(get_db)
 ):
     """
     Get a specific watchlist by ID with item count
@@ -168,7 +169,7 @@ async def update_watchlist(
     watchlist_id: str,
     watchlist: WatchlistUpdate,
     current_user: dict = Depends(get_current_user),
-    supabase: Client = Depends(get_supabase_client)
+    supabase: Client = Depends(get_db)
 ):
     """
     Update a watchlist
@@ -215,7 +216,7 @@ async def update_watchlist(
 async def delete_watchlist(
     watchlist_id: str,
     current_user: dict = Depends(get_current_user),
-    supabase: Client = Depends(get_supabase_client)
+    supabase: Client = Depends(get_db)
 ):
     """
     Delete a watchlist and all its items
@@ -257,7 +258,7 @@ async def add_item_to_watchlist(
     watchlist_id: str,
     item: WatchlistItemCreate,
     current_user: dict = Depends(get_current_user),
-    supabase: Client = Depends(get_supabase_client)
+    supabase: Client = Depends(get_db)
 ):
     """
     Add a stock to a watchlist
@@ -272,7 +273,7 @@ async def add_item_to_watchlist(
             raise HTTPException(status_code=404, detail="Watchlist not found")
         
         # Get current price
-        from ..utils.market_data import get_stock_price
+        from app.utils.market_data import get_stock_price
         
         added_price = await get_stock_price(item.ticker)
         
@@ -316,7 +317,7 @@ async def get_watchlist_items(
     watchlist_id: str,
     include_prices: bool = Query(True, description="Include current prices"),
     current_user: dict = Depends(get_current_user),
-    supabase: Client = Depends(get_supabase_client)
+    supabase: Client = Depends(get_db)
 ):
     """
     Get all items in a watchlist with optional live prices
@@ -339,7 +340,7 @@ async def get_watchlist_items(
         
         # Fetch current prices if requested
         if include_prices and items:
-            from ..utils.market_data import get_market_data
+            from app.utils.market_data import get_market_data
             
             tickers = [item["ticker"] for item in items]
             prices = await get_market_data(tickers)
@@ -373,7 +374,7 @@ async def get_watchlist_item(
     watchlist_id: str,
     item_id: str,
     current_user: dict = Depends(get_current_user),
-    supabase: Client = Depends(get_supabase_client)
+    supabase: Client = Depends(get_db)
 ):
     """
     Get a specific item in a watchlist
@@ -398,7 +399,7 @@ async def get_watchlist_item(
         item = result.data[0]
         
         # Fetch current price
-        from ..utils.market_data import get_market_data
+        from app.utils.market_data import get_market_data
         
         prices = await get_market_data([item["ticker"]])
         ticker = item["ticker"]
@@ -429,7 +430,7 @@ async def update_watchlist_item(
     item_id: str,
     item: WatchlistItemUpdate,
     current_user: dict = Depends(get_current_user),
-    supabase: Client = Depends(get_supabase_client)
+    supabase: Client = Depends(get_db)
 ):
     """
     Update a watchlist item (target price, notes, tags)
@@ -490,7 +491,7 @@ async def remove_item_from_watchlist(
     item_id: str,
     remove_alert: bool = Query(True, description="Also remove associated price alert"),
     current_user: dict = Depends(get_current_user),
-    supabase: Client = Depends(get_supabase_client)
+    supabase: Client = Depends(get_db)
 ):
     """
     Remove a stock from a watchlist
@@ -549,7 +550,7 @@ async def add_items_bulk(
     watchlist_id: str,
     tickers: List[str] = Query(..., description="List of tickers to add"),
     current_user: dict = Depends(get_current_user),
-    supabase: Client = Depends(get_supabase_client)
+    supabase: Client = Depends(get_db)
 ):
     """
     Add multiple stocks to a watchlist at once
@@ -564,7 +565,7 @@ async def add_items_bulk(
             raise HTTPException(status_code=404, detail="Watchlist not found")
         
         # Get prices for all tickers
-        from ..utils.market_data import get_market_data
+        from app.utils.market_data import get_market_data
         
         prices = await get_market_data(tickers)
         
@@ -606,7 +607,7 @@ async def remove_items_bulk(
     watchlist_id: str,
     tickers: List[str] = Query(..., description="List of tickers to remove"),
     current_user: dict = Depends(get_current_user),
-    supabase: Client = Depends(get_supabase_client)
+    supabase: Client = Depends(get_db)
 ):
     """
     Remove multiple stocks from a watchlist at once
@@ -645,7 +646,7 @@ async def remove_items_bulk(
 async def get_watchlist_summary(
     watchlist_id: str,
     current_user: dict = Depends(get_current_user),
-    supabase: Client = Depends(get_supabase_client)
+    supabase: Client = Depends(get_db)
 ):
     """
     Get comprehensive summary and analytics for a watchlist
@@ -681,7 +682,7 @@ async def get_watchlist_summary(
             }
         
         # Get current prices
-        from ..utils.market_data import get_market_data
+        from app.utils.market_data import get_market_data
         
         tickers = [item["ticker"] for item in items]
         prices = await get_market_data(tickers)
@@ -712,7 +713,7 @@ async def get_watchlist_summary(
 async def create_watchlist_snapshot(
     watchlist_id: str,
     current_user: dict = Depends(get_current_user),
-    supabase: Client = Depends(get_supabase_client)
+    supabase: Client = Depends(get_db)
 ):
     """
     Create a snapshot of current watchlist performance
@@ -737,7 +738,7 @@ async def create_watchlist_snapshot(
             return {"success": False, "message": "No items to snapshot"}
         
         # Get current prices
-        from ..utils.market_data import get_market_data
+        from app.utils.market_data import get_market_data
         
         tickers = [item["ticker"] for item in items]
         prices = await get_market_data(tickers)
@@ -764,7 +765,7 @@ async def get_watchlist_snapshots(
     watchlist_id: str,
     days: int = Query(30, ge=1, le=365, description="Number of days of history"),
     current_user: dict = Depends(get_current_user),
-    supabase: Client = Depends(get_supabase_client)
+    supabase: Client = Depends(get_db)
 ):
     """
     Get historical snapshots for a watchlist

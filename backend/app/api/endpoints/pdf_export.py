@@ -8,9 +8,10 @@ from fastapi.responses import Response
 from typing import Optional
 from pydantic import BaseModel
 
-from ..dependencies import get_current_user, get_supabase_client
-from ..utils.pdf_generator import PDFGenerator, get_pdf_generator
-from ..utils.feature_gates import require_pdf_export, check_pdf_limit
+from app.core.security import get_current_user
+from app.db.database import get_db
+from app.utils.pdf_generator import PDFGenerator, get_pdf_generator
+from app.utils.feature_gates import require_pdf_export, check_pdf_limit
 from supabase import Client
 
 router = APIRouter()
@@ -44,7 +45,7 @@ class ExportTechnicalRequest(BaseModel):
 async def export_analysis_pdf(
     request: ExportAnalysisRequest,
     current_user: dict = Depends(require_pdf_export),  # Premium only
-    supabase: Client = Depends(get_supabase_client),
+    supabase: Client = Depends(get_db),
     pdf_generator: PDFGenerator = Depends(get_pdf_generator)
 ):
     """
@@ -85,7 +86,7 @@ async def export_analysis_pdf(
 async def export_screening_pdf(
     request: ExportScreeningRequest,
     current_user: dict = Depends(require_pdf_export),
-    supabase: Client = Depends(get_supabase_client),
+    supabase: Client = Depends(get_db),
     pdf_generator: PDFGenerator = Depends(get_pdf_generator)
 ):
     """
@@ -134,7 +135,7 @@ async def export_screening_pdf(
 async def export_technical_pdf(
     request: ExportTechnicalRequest,
     current_user: dict = Depends(require_pdf_export),
-   supabase: Client = Depends(get_supabase_client),
+   supabase: Client = Depends(get_db),
     pdf_generator: PDFGenerator = Depends(get_pdf_generator)
 ):
     """
@@ -172,7 +173,7 @@ async def export_technical_pdf(
 async def export_analysis_by_ticker(
     ticker: str,
     current_user: dict = Depends(require_pdf_export),
-    supabase: Client = Depends(get_supabase_client),
+    supabase: Client = Depends(get_db),
     pdf_generator: PDFGenerator = Depends(get_pdf_generator)
 ):
     """
@@ -246,7 +247,7 @@ async def export_technical_by_ticker(
     ticker: str,
     period: str = "1y",
     current_user: dict = Depends(require_pdf_export),
-    supabase: Client = Depends(get_supabase_client),
+    supabase: Client = Depends(get_db),
     pdf_generator: PDFGenerator = Depends(get_pdf_generator)
 ):
     """
@@ -306,12 +307,12 @@ async def export_technical_by_ticker(
 @router.get("/export/info")
 async def get_export_info(
     current_user: dict = Depends(get_current_user),
-    supabase: Client = Depends(get_supabase_client)
+    supabase: Client = Depends(get_db)
 ):
     """
     Get information about PDF export feature and user's usage
     """
-    from ..utils.stripe_service import get_stripe_service
+    from app.utils.stripe_service import get_stripe_service
     
     stripe_service = get_stripe_service(supabase)
     
