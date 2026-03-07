@@ -1,0 +1,46 @@
+# Handle line endings automatically
+* text=auto
+
+# Specific file types
+*.js text eol=lf
+*.jsx text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.py text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+
+# Binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+
+# Lock files - always use LF
+package-lock.json text eol=lf
+bun.lockb binary
+poetry.lock text eol=lf
+
+# Shell scripts
+*.sh text eol=lf
+
+# Python files
+*.py text eol=lf diff=python
+*.pyi text eol=lf diff=python
+*.pyx text eol=lf diff=python
+
+# SQL files
+*.sql text eol=lf
+
+# Config files
+.editorconfig text eol=lf
+.gitignore text eol=lf
+.gitattributes text eol=lf

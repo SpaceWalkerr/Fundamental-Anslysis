@@ -89,7 +89,10 @@ async def register(user_data: UserRegister, db: Client = Depends(get_db)):
         )
         
     except Exception as e:
+        import traceback
         error_message = str(e)
+        print(f"❌ Registration error: {error_message}")
+        print(f"❌ Full traceback: {traceback.format_exc()}")
         if "already registered" in error_message.lower() or "already exists" in error_message.lower():
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
