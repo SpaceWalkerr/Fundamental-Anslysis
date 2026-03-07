@@ -2,14 +2,13 @@ services:
   - type: web
     name: fundamental-analysis-api
     env: python
+    pythonVersion: 3.12.0
     region: oregon
     plan: free
     branch: main
     buildCommand: "cd backend && pip install --upgrade pip && pip install -r requirements.txt"
     startCommand: "cd backend && python -m uvicorn app.main:app --host 0.0.0.0 --port $PORT"
     envVars:
-      - key: PYTHON_VERSION
-        value: 3.11.7
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_KEY

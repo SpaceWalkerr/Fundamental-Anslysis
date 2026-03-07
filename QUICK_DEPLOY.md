@@ -117,6 +117,21 @@ After deployment:
 5. ✅ Can create portfolio
 6. ✅ Can create watchlist
 
+## 🔧 Troubleshooting
+
+### Backend Build Fails with pydantic-core Error
+**Error:** `error: failed to create directory /usr/local/cargo/registry/cache/`
+
+**Solution:** Python version too new (3.14) - no pre-built wheels available
+- Render.yaml now specifies `pythonVersion: 3.12.0`
+- Both `runtime.txt` files updated to `python-3.12.0`
+- Redeploy should automatically use Python 3.12
+
+### Backend Takes Too Long to Start
+- First deploy on free tier can take 10-15 minutes
+- Check Render logs for progress
+- Health check endpoint: `/health`
+
 ## 📚 Full Documentation
 
 - **DEPLOYMENT.md** - Complete detailed guide
