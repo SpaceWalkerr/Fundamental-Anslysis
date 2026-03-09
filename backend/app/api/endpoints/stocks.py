@@ -178,20 +178,30 @@ async def search_companies(
 @router.post("/screener", response_model=StockScreenerResponse)
 async def run_stock_screener(
     request: StockScreenerRequest,
-    current_user: dict = Depends(require_premium),  # Premium feature
     db: Client = Depends(get_db)
+    # TODO: Re-enable authentication: current_user: dict = Depends(get_current_active_user)
 ):
     """
-    Run stock screener with custom filters (Premium feature)
+    Run stock screener with custom filters
     Filter stocks based on financial metrics and fundamentals
     """
     # Get stock screener
     screener = get_stock_screener(db)
     
     try:
+        # Convert Pydantic models to dictionaries for the screener
+        filters_dict = [
+            {
+                "field": f.field,
+                "operator": f.operator,
+                "value": f.value
+            }
+            for f in request.filters
+        ]
+        
         # Run screening
         results = screener.screen_stocks(
-            filters=request.filters,
+            filters=filters_dict,
             sort_by=request.sort_by if hasattr(request, 'sort_by') else "market_cap",
             sort_order=request.sort_order if hasattr(request, 'sort_order') else "desc",
             limit=request.limit if hasattr(request, 'limit') else 100

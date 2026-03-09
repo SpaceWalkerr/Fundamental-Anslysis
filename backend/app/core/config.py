@@ -46,6 +46,11 @@ class Settings(BaseSettings):
     FMP_API_KEY: str = ""  # Financial Modeling Prep
     POLYGON_API_KEY: str = ""
     
+    # Fyers API (Indian Markets)
+    FYERS_APP_ID: str = ""
+    FYERS_SECRET_ID: str = ""
+    FYERS_REDIRECT_URI: str = "http://localhost:8080/callback"
+    
     # Vector Database
     CHROMA_PERSIST_DIRECTORY: str = "./data/chroma"
     EMBEDDING_MODEL: str = "all-MiniLM-L6-v2"

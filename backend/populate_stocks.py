@@ -13,52 +13,63 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from app.utils.stock_data_service import get_stock_data_service
 from app.db.database import get_supabase_client
 
-# Popular stocks to fetch (can be expanded)
+# Popular Indian stocks to fetch (Yahoo Finance format)
+# Format: SYMBOL.NS for NSE (National Stock Exchange)
 POPULAR_STOCKS = [
-    # Technology
-    "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA", "NFLX", "ADBE", "CRM",
-    "ORCL", "INTC", "AMD", "QCOM", "AVGO", "TXN", "IBM", "NOW", "INTU", "CSCO",
+    # Large Cap - Technology & IT
+    "TCS.NS", "INFY.NS", "WIPRO.NS", "HCLTECH.NS", "TECHM.NS",
+    "LTI.NS", "COFORGE.NS", "PERSISTENT.NS", "MPHASIS.NS",
     
-    # Finance
-    "JPM", "BAC", "WFC", "GS", "MS", "C", "BLK", "SCHW", "AXP", "V",
-    "MA", "PYPL", "SQ", "COF", "USB", "PNC", "TFC", "BK", "STT", "SPGI",
+    # Large Cap - Banking & Finance
+    "HDFCBANK.NS", "ICICIBANK.NS", "SBIN.NS", "KOTAKBANK.NS", "AXISBANK.NS",
+    "BAJFINANCE.NS", "BAJAJFINSV.NS", "INDUSINDBK.NS", "ICICIGI.NS", "HDFCLIFE.NS",
     
-    # Healthcare
-    "JNJ", "UNH", "PFE", "ABBV", "TMO", "ABT", "MRK", "LLY", "DHR", "BMY",
-    "AMGN", "GILD", "CVS", "CI", "HUM", "ISRG", "VRTX", "REGN", "ZTS", "BIIB",
+    # Large Cap - Energy & Oil
+    "RELIANCE.NS", "ONGC.NS", "BPCL.NS", "IOC.NS", "GAIL.NS",
+    "ADANIGREEN.NS", "ADANIPOWER.NS", "TATAPOWER.NS", "NTPC.NS", "POWERGRID.NS",
     
-    # Consumer  
-    "WMT", "HD", "NKE", "MCD", "SBUX", "TGT", "LOW", "COST", "DIS", "CMCSA",
-    "PEP", "KO", "PM", "PG", "CL", "EL", "KMB", "CHD", "CLX", "TSN",
+    # Large Cap - FMCG & Consumer
+    "HINDUNILVR.NS", "ITC.NS", "NESTLEIND.NS", "BRITANNIA.NS", "DABUR.NS",
+    "GODREJCP.NS", "MARICO.NS", "TATACONSUM.NS", "COLPAL.NS",
     
-    # Industrial
-    "BA", "CAT", "GE", "HON", "UNP", "UPS", "MMM", "LMT", "RTX", "DE",
+    # Large Cap - Pharma & Healthcare
+    "SUNPHARMA.NS", "DRREDDY.NS", "CIPLA.NS", "DIVISLAB.NS", "BIOCON.NS",
+    "AUROPHARMA.NS", "LUPIN.NS", "TORNTPHARM.NS", "APOLLOHOSP.NS",
     
-    # Energy
-    "XOM", "CVX", "COP", "SLB", "EOG", "MPC", "PSX", "VLO", "OXY", "HAL",
+    # Large Cap - Auto & Manufacturing
+    "MARUTI.NS", "TATAMOTORS.NS", "M&M.NS", "BAJAJ-AUTO.NS", "EICHERMOT.NS",
+    "HEROMOTOCO.NS", "ASHOKLEY.NS", "TVSMOTOR.NS", "BHARATFORG.NS",
     
-    # Other
-    "BRK.B", "VZ", "T", "NEE", "DUK"
+    # Large Cap - Metals & Mining
+    "TATASTEEL.NS", "JSWSTEEL.NS", "HINDALCO.NS", "VEDL.NS", "COALINDIA.NS",
+    "SAIL.NS", "NMDC.NS", "JINDALSTEL.NS",
+    
+    # Large Cap - Infrastructure & Cement
+    "LT.NS", "ULTRACEMCO.NS", "GRASIM.NS", "AMBUJACEM.NS", "ACC.NS",
+    "ADANIPORTS.NS", "DLF.NS", "GODREJPROP.NS",
+    
+    # Large Cap - Telecom & Media
+    "BHARTIARTL.NS", "ZEEL.NS", "SUNTV.NS",
+    
+    # Mid Cap - Emerging Stars
+    "ADANIENT.NS", "BERGEPAINT.NS", "HAVELLS.NS", "PIDILITIND.NS",
+    "SIEMENS.NS", "ABB.NS", "BOSCHLTD.NS", "CUMMINSIND.NS",
 ]
 
 async def populate_stocks():
     """Fetch and save stock data"""
     print("=" * 60)
-    print("Stock Database Population Script")
+    print("Stock Database Population Script - Indian Markets (NSE)")
     print("=" * 60)
-    print(f"\nFetching data for {len(POPULAR_STOCKS)} popular stocks...")
-    print("This may take several minutes due to API rate limits.\n")
+    print(f"\nFetching data for {len(POPULAR_STOCKS)} popular Indian stocks...")
+    print("This may take several minutes.\n")
     
     # Initialize services
     stock_service = get_stock_data_service()
     db = get_supabase_client()
     
-    if not stock_service.alpha_vantage_key and not stock_service.fmp_key:
-        print("❌ ERROR: No stock data API key configured!")
-        print("\nPlease add one of the following to your .env file:")
-        print("  - ALPHA_VANTAGE_API_KEY (free at https://www.alphavantage.co/support/#api-key)")
-        print("  - FMP_API_KEY (free at https://site.financialmodelingprep.com/developer/docs)")
-        return
+    # Yahoo Finance doesn't need API keys!
+    print("Using Yahoo Finance API (no API key required)\n")
     
     success_count = 0
     error_count = 0
@@ -72,7 +83,7 @@ async def populate_stocks():
             
             if overview:
                 # Save to database
-                db.table('stocks').upsert(overview).execute()
+                db.table('stocks').upsert(overview, on_conflict='ticker').execute()
                 print(f"✓ {overview.get('name', ticker)}")
                 success_count += 1
             else:
@@ -99,19 +110,20 @@ async def populate_stocks():
 
 async def test_api_connection():
     """Test API connection before bulk fetch"""
-    print("Testing API connection...")
+    print("Testing Yahoo Finance connection...")
     stock_service = get_stock_data_service()
     
     try:
-        result = await stock_service.get_company_overview("AAPL")
+        # Test with TCS (Indian stock)
+        result = await stock_service.get_company_overview("TCS.NS")
         if result:
-            print(f"✓ API connection successful!")
+            print(f"✓ Yahoo Finance connection successful!")
             print(f"  Test fetch: {result.get('name')} ({result.get('ticker')})")
-            print(f"  Price: ${result.get('price', 'N/A')}")
-            print(f"  Market Cap: ${result.get('market_cap', 'N/A')}\n")
+            print(f"  Price: ₹{result.get('price', 'N/A')}")
+            print(f"  Market Cap: ₹{result.get('market_cap', 'N/A')}\n")
             return True
         else:
-            print("✗ API returned no data")
+            print("✗ Yahoo Finance returned no data")
             return False
     except Exception as e:
         print(f"✗ API test failed: {e}")
@@ -122,11 +134,11 @@ async def main():
     """Main entry point"""
     # Test API first
     if not await test_api_connection():
-        print("\n❌ API connection test failed. Please check your API keys.")
+        print("\n❌ Yahoo Finance connection test failed.")
         return
     
     # Ask for confirmation
-    print("This script will fetch data for 100+ stocks.")
+    print(f"This script will fetch data for {len(POPULAR_STOCKS)} Indian stocks from NSE.")
     response = input("\nProceed? (y/n): ")
     
     if response.lower() == 'y':

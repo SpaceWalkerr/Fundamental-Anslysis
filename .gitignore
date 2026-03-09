@@ -13,6 +13,21 @@ dist
 dist-ssr
 *.local
 
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+ENV/
+env/
+*.egg-info/
+backend/uploads/*
+backend/data/chroma/*
+!backend/uploads/.gitkeep
+!backend/data/chroma/.gitkeep
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -30,6 +45,7 @@ dist-ssr
 .env.production.local
 .env.development.local
 .env.test.local
+backend/.env
 
 # Build outputs
 build

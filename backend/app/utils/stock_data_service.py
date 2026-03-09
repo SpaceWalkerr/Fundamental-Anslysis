@@ -8,15 +8,19 @@ import asyncio
 from datetime import datetime, timedelta
 import os
 from app.core.config import settings
+import yfinance as yf
 
 class StockDataService:
     """
     Service for fetching stock market data
-    Supports Alpha Vantage, Polygon.io, and Financial Modeling Prep
+    Supports Yahoo Finance (best for both US & Indian stocks), Alpha Vantage, FMP
     """
     
     def __init__(self):
         """Initialize stock data service"""
+        # Yahoo Finance needs no API key - always available
+        self.use_yfinance = True
+        
         self.alpha_vantage_key = settings.ALPHA_VANTAGE_API_KEY if hasattr(settings, 'ALPHA_VANTAGE_API_KEY') else os.getenv('ALPHA_VANTAGE_API_KEY')
         self.fmp_key = settings.FMP_API_KEY if hasattr(settings, 'FMP_API_KEY') else os.getenv('FMP_API_KEY')
         
@@ -41,16 +45,72 @@ class StockDataService:
         Get comprehensive company fundamentals
         
         Args:
-            ticker: Stock ticker symbol
+            ticker: Stock ticker symbol 
+                    US stocks: 'AAPL', 'MSFT', etc.
+                    Indian stocks: 'RELIANCE.NS', 'TCS.NS', etc. (.NS for NSE, .BO for BSE)
             
         Returns:
             Dict with company data or None if failed
         """
-        if self.fmp_key:
+        # Use Yahoo Finance (works for all markets, no API key needed)
+        if self.use_yfinance:
+            return await self._get_overview_yfinance(ticker)
+        elif self.fmp_key:
             return await self._get_overview_fmp(ticker)
         elif self.alpha_vantage_key:
             return await self._get_overview_alpha_vantage(ticker)
         else:
+            return None
+    
+    async def _get_overview_yfinance(self, ticker: str) -> Optional[Dict]:
+        """Fetch company overview from Yahoo Finance
+        
+        Works for all global markets including US and Indian stocks.
+        No API key required!
+        """
+        try:
+            # Fetch data in executor to avoid blocking
+            loop = asyncio.get_event_loop()
+            stock = await loop.run_in_executor(None, yf.Ticker, ticker)
+            info = await loop.run_in_executor(None, lambda: stock.info)
+            
+            if not info or 'symbol' not in info:
+                return None
+            
+            # Parse and normalize data to match our schema
+            return {
+                "ticker": info.get("symbol"),
+                "name": info.get("longName") or info.get("shortName"),
+                "description": info.get("longBusinessSummary"),
+                "sector": info.get("sector"),
+                "industry": info.get("industry"),
+                "exchange": info.get("exchange"),
+                "currency": info.get("currency"),
+                "country": info.get("country"),
+                "market_cap": info.get("marketCap"),
+                "pe_ratio": info.get("trailingPE") or info.get("forwardPE"),
+                "peg_ratio": info.get("pegRatio"),
+                "pb_ratio": info.get("priceToBook"),
+                "dividend_yield": info.get("dividendYield") * 100 if info.get("dividendYield") else None,
+                "eps": info.get("trailingEps"),
+                "profit_margin": info.get("profitMargins") * 100 if info.get("profitMargins") else None,
+                "operating_margin": info.get("operatingMargins") * 100 if info.get("operatingMargins") else None,
+                "roe": info.get("returnOnEquity") * 100 if info.get("returnOnEquity") else None,
+                "roa": info.get("returnOnAssets") * 100 if info.get("returnOnAssets") else None,
+                "revenue_growth": info.get("revenueGrowth") * 100 if info.get("revenueGrowth") else None,
+                "earnings_growth": info.get("earningsGrowth") * 100 if info.get("earningsGrowth") else None,
+                "current_ratio": info.get("currentRatio"),
+                "debt_to_equity": info.get("debtToEquity"),
+                "beta": info.get("beta"),
+                "week_52_high": info.get("fiftyTwoWeekHigh"),
+                "week_52_low": info.get("fiftyTwoWeekLow"),
+                "avg_volume": info.get("averageVolume"),
+                "shares_outstanding": info.get("sharesOutstanding"),
+                "price": info.get("currentPrice") or info.get("regularMarketPrice"),
+                "last_updated": datetime.utcnow().isoformat()
+            }
+        except Exception as e:
+            print(f"Error fetching Yahoo Finance data for {ticker}: {e}")
             return None
     
     async def _get_overview_alpha_vantage(self, ticker: str) -> Optional[Dict]:
@@ -86,13 +146,12 @@ class StockDataService:
                         "exchange": data.get("Exchange"),
                         "currency": data.get("Currency"),
                         "country": data.get("Country"),
-                        "market_cap": self._parse_number(data.get("MarketCapitalization")),
+                        "market_cap": self._parse_bigint(data.get("MarketCapitalization")),
                         "pe_ratio": self._parse_number(data.get("PERatio")),
                         "peg_ratio": self._parse_number(data.get("PEGRatio")),
-                        "book_value": self._parse_number(data.get("BookValue")),
+                        "pb_ratio": self._parse_number(data.get("PriceToBookRatio")),
                         "dividend_yield": self._parse_number(data.get("DividendYield"), multiply=100),
                         "eps": self._parse_number(data.get("EPS")),
-                        "revenue_per_share": self._parse_number(data.get("RevenuePerShareTTM")),
                         "profit_margin": self._parse_number(data.get("ProfitMargin"), multiply=100),
                         "operating_margin": self._parse_number(data.get("OperatingMarginTTM"), multiply=100),
                         "roe": self._parse_number(data.get("ReturnOnEquityTTM"), multiply=100),
@@ -104,8 +163,8 @@ class StockDataService:
                         "beta": self._parse_number(data.get("Beta")),
                         "week_52_high": self._parse_number(data.get("52WeekHigh")),
                         "week_52_low": self._parse_number(data.get("52WeekLow")),
-                        "avg_volume": self._parse_number(data.get("50DayMovingAverage")),
-                        "shares_outstanding": self._parse_number(data.get("SharesOutstanding")),
+                        "avg_volume": None,  # Not available in OVERVIEW endpoint
+                        "shares_outstanding": self._parse_bigint(data.get("SharesOutstanding")),
                         "last_updated": datetime.utcnow().isoformat()
                     }
         except Exception as e:
@@ -159,6 +218,71 @@ class StockDataService:
                     }
         except Exception as e:
             print(f"Error fetching FMP data for {ticker}: {e}")
+            return None
+    
+    async def _get_overview_fyers(self, ticker: str) -> Optional[Dict]:
+        """Fetch company overview from Fyers (Indian Markets)
+        
+        Note: Fyers requires authentication. For basic data API calls without login,
+        we'll use their quote API endpoint.
+        """
+        try:
+            # Initialize Fyers client if not already done
+            if not self.fyers_client and self.fyers_app_id:
+                self.fyers_client = fyersModel.FyersModel(
+                    client_id=self.fyers_app_id,
+                    is_async=False,
+                    token="",  # For data API, token might not be required for basic quotes
+                    log_path=""
+                )
+            
+            # Get quote data
+            data = {"symbols": ticker}
+            response = self.fyers_client.quotes(data=data)
+            
+            if response and 'd' in response and len(response['d']) > 0:
+                quote = response['d'][0]['v']
+                
+                # Extract symbol name (remove NSE:/BSE: prefix)
+                symbol = ticker.split(':')[-1].replace('-EQ', '')
+                
+                return {
+                    "ticker": ticker,
+                    "name": symbol,  # Fyers doesn't provide full company name in quote
+                    "description": f"Stock listed on {ticker.split(':')[0]}",
+                    "sector": None,
+                    "industry": None,
+                    "exchange": ticker.split(':')[0],  # NSE or BSE
+                    "currency": "INR",
+                    "country": "India",
+                    "market_cap": None,
+                    "pe_ratio": None,
+                    "peg_ratio": None,
+                    "pb_ratio": None,
+                    "dividend_yield": None,
+                    "eps": None,
+                    "profit_margin": None,
+                    "operating_margin": None,
+                    "roe": None,
+                    "roa": None,
+                    "revenue_growth": None,
+                    "earnings_growth": None,
+                    "current_ratio": None,
+                    "debt_to_equity": None,
+                    "beta": None,
+                    "week_52_high": quote.get('high_price') if 'high_price' in quote else None,
+                    "week_52_low": quote.get('low_price') if 'low_price' in quote else None,
+                    "avg_volume": None,
+                    "shares_outstanding": None,
+                    "price": quote.get('lp'),  # Last traded price
+                    "last_updated": datetime.utcnow().isoformat()
+                }
+            else:
+                print(f"No data returned from Fyers for {ticker}")
+                return None
+                
+        except Exception as e:
+            print(f"Error fetching Fyers data for {ticker}: {e}")
             return None
     
     async def get_quote(self, ticker: str) -> Optional[Dict]:
@@ -482,6 +606,15 @@ class StockDataService:
             return None
         try:
             return float(value) * multiply
+        except (ValueError, TypeError):
+            return None
+    
+    def _parse_bigint(self, value) -> Optional[int]:
+        """Parse string number to integer for bigint fields"""
+        if value is None or value == "None" or value == "":
+            return None
+        try:
+            return int(float(value))
         except (ValueError, TypeError):
             return None
 

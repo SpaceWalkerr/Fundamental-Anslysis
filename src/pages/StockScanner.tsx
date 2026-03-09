@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { Button } from "@/components/ui/button";
@@ -134,6 +134,45 @@ const StockScanner = () => {
   const [sortField, setSortField] = useState("matchScore");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [isExporting, setIsExporting] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
+
+  // Load all stocks on initial mount
+  useEffect(() => {
+    loadAllStocks();
+  }, []);
+
+  const loadAllStocks = async () => {
+    setIsScanning(true);
+    try {
+      // Load all stocks with no filters
+      const response = await api.stocks.screenStocks({
+        filters: [],
+        sort_by: "market_cap",
+        sort_order: "desc",
+        limit: 100,
+      });
+
+      // Transform response to frontend format
+      const transformedResults = response.map((stock: any) => ({
+        ticker: stock.ticker,
+        company: stock.company,
+        sector: stock.sector,
+        price: stock.price,
+        marketCap: stock.market_cap,
+        peRatio: stock.pe_ratio,
+        revenueGrowth: stock.revenue_growth || 0,
+        profitMargin: stock.profit_margin || 0,
+        matchScore: stock.match_score || 85,
+      }));
+
+      setResults(transformedResults);
+    } catch (error: any) {
+      console.error("Failed to load stocks:", error);
+      // Keep mock results if API fails
+    } finally {
+      setIsScanning(false);
+    }
+  };
 
   const addFilter = () => {
     const newFilter: FilterItem = {
@@ -159,9 +198,55 @@ const StockScanner = () => {
     );
   };
 
-  const runScan = () => {
-    // In real app, this would call the API
-    setResults(mockResults);
+  const runScan = async () => {
+    setIsScanning(true);
+    try {
+      // Transform filters to backend format (remove id field)
+      const backendFilters = filters
+        .filter((f) => f.value !== "") // Only include filters with values
+        .map(({ field, operator, value }) => ({
+          field,
+          operator,
+          value,
+        }));
+
+      // Call the real API
+      const response = await api.stocks.screenStocks({
+        filters: backendFilters,
+        sort_by: sortField === "matchScore" ? "match_score" : sortField === "peRatio" ? "pe_ratio" : sortField === "marketCap" ? "market_cap" : sortField,
+        sort_order: sortOrder,
+        limit: 100,
+      });
+
+      // Transform response to frontend format (snake_case to camelCase)
+      const transformedResults = response.map((stock: any) => ({
+        ticker: stock.ticker,
+        company: stock.company,
+        sector: stock.sector,
+        price: stock.price,
+        marketCap: stock.market_cap,
+        peRatio: stock.pe_ratio,
+        revenueGrowth: stock.revenue_growth || 0,
+        profitMargin: stock.profit_margin || 0,
+        matchScore: stock.match_score || 85,
+      }));
+
+      setResults(transformedResults);
+
+      toast({
+        title: "Scan Complete",
+        description: `Found ${transformedResults.length} matching stocks`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Scan Failed",
+        description: error.message || "Failed to screen stocks. Please try again.",
+        variant: "destructive",
+      });
+      console.error("Screening error:", error);
+    } finally {
+      setIsScanning(false);
+    }
   };
 
   const handleSort = (field: string) => {
@@ -362,9 +447,9 @@ const StockScanner = () => {
           </div>
 
           <div className="flex items-center gap-3 mt-6">
-            <Button onClick={runScan} className="bg-gradient-primary gap-2">
+            <Button onClick={runScan} className="bg-gradient-primary gap-2" disabled={isScanning}>
               <Play className="w-4 h-4" />
-              Run Scan
+              {isScanning ? "Scanning..." : "Run Scan"}
             </Button>
             <Button variant="outline" className="gap-2">
               <Save className="w-4 h-4" />
