@@ -1,0 +1,16 @@
+<svg width="180" height="180" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Apple Touch Icon - 180x180 -->
+  <rect width="180" height="180" rx="40" fill="hsl(152, 69%, 31%)"/>
+  
+  <!-- Upward trend bars -->
+  <rect x="37" y="112" width="22" height="30" rx="5" fill="rgba(255,255,255,0.45)"/>
+  <rect x="70" y="90" width="22" height="52" rx="5" fill="rgba(255,255,255,0.65)"/>
+  <rect x="104" y="60" width="22" height="82" rx="5" fill="rgba(255,255,255,0.85)"/>
+  
+  <!-- Peak arrow / growth indicator -->
+  <path d="M134 52 L150 36 L150 60" stroke="white" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <path d="M120 66 L150 36" stroke="white" stroke-width="9" stroke-linecap="round"/>
+  
+  <!-- Small leaf accent -->
+  <path d="M142 120 C142 105 158 97 158 97 C158 97 150 112 142 120 Z" fill="hsl(152, 40%, 72%)" opacity="0.7"/>
+</svg>

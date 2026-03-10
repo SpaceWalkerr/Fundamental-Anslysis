@@ -1,0 +1,13 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Simplified favicon version -->
+  <rect width="32" height="32" rx="8" fill="hsl(152, 69%, 31%)"/>
+  
+  <!-- Upward trend bars (simplified) -->
+  <rect x="6" y="20" width="4" height="6" rx="1" fill="rgba(255,255,255,0.5)"/>
+  <rect x="12" y="16" width="4" height="10" rx="1" fill="rgba(255,255,255,0.7)"/>
+  <rect x="18" y="10" width="4" height="16" rx="1" fill="white"/>
+  
+  <!-- Arrow -->
+  <path d="M24 9 L27 6 L27 11" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <path d="M21 12 L27 6" stroke="white" stroke-width="2" stroke-linecap="round"/>
+</svg>
