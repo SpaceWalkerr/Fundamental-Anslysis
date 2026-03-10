@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
-  TrendingUp,
   Home,
   FileText,
   Filter,
@@ -14,9 +13,11 @@ import {
   ChevronLeft,
   ChevronRight,
   Sparkles,
+  HelpCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import Logo, { LogoMark } from "@/components/brand/Logo";
 
 interface SidebarProps {
   children: React.ReactNode;
@@ -37,30 +38,27 @@ const DashboardLayout = ({ children }: SidebarProps) => {
   const location = useLocation();
 
   return (
-    <div className="min-h-screen bg-background flex">
-      {/* Sidebar */}
+    <div className="min-h-screen bg-secondary/30 flex">
+      {/* Sidebar — Clean white, Xtin-aligned */}
       <motion.aside
         initial={false}
-        animate={{ width: collapsed ? 80 : 280 }}
+        animate={{ width: collapsed ? 76 : 260 }}
         transition={{ duration: 0.2 }}
-        className="fixed left-0 top-0 h-full bg-sidebar border-r border-sidebar-border flex flex-col z-40"
+        className="fixed left-0 top-0 h-full bg-white border-r border-border flex flex-col z-40"
       >
         {/* Logo */}
-        <div className="h-16 flex items-center justify-between px-4 border-b border-sidebar-border">
-          <Link to="/dashboard" className="flex items-center gap-2">
-            <div className="w-10 h-10 rounded-lg bg-gradient-primary flex items-center justify-center flex-shrink-0">
-              <TrendingUp className="w-6 h-6 text-primary-foreground" />
-            </div>
-            {!collapsed && (
-              <span className="font-serif text-lg font-semibold text-sidebar-foreground">
-                FundaVision
-              </span>
+        <div className="h-16 flex items-center px-4 border-b border-border">
+          <Link to="/dashboard" className="flex items-center gap-2.5">
+            {collapsed ? (
+              <LogoMark size={36} />
+            ) : (
+              <Logo size="md" />
             )}
           </Link>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 py-6 px-3 space-y-1">
+        <nav className="flex-1 py-4 px-3 space-y-0.5">
           {navItems.map((item) => {
             const isActive = location.pathname === item.href;
             return (
@@ -68,65 +66,65 @@ const DashboardLayout = ({ children }: SidebarProps) => {
                 key={item.name}
                 to={item.href}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-3 rounded-lg transition-colors relative group",
+                  "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 relative group",
                   isActive
-                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                    : "text-sidebar-foreground hover:bg-sidebar-accent/50"
+                    ? "bg-accent text-primary font-semibold"
+                    : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
                 )}
               >
-                <item.icon className="w-5 h-5 flex-shrink-0" />
+                <item.icon className={cn("w-[18px] h-[18px] flex-shrink-0", isActive && "text-primary")} />
                 {!collapsed && (
                   <>
-                    <span className="font-medium">{item.name}</span>
+                    <span className="text-sm">{item.name}</span>
                     {item.premium && (
-                      <Sparkles className="w-4 h-4 text-warning ml-auto" />
+                      <Sparkles className="w-3.5 h-3.5 text-amber-500 ml-auto" />
                     )}
                   </>
                 )}
                 {collapsed && item.premium && (
-                  <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-warning" />
+                  <span className="absolute top-1. right-1 w-1.5 h-1.5 rounded-full bg-amber-500" />
                 )}
               </Link>
             );
           })}
         </nav>
 
-        {/* User Tier Badge */}
+        {/* Upgrade Card */}
         {!collapsed && (
-          <div className="mx-3 mb-4 p-4 rounded-lg bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20">
-            <div className="flex items-center gap-2 mb-2">
+          <div className="mx-3 mb-3 p-4 rounded-2xl bg-accent border border-primary/10">
+            <div className="flex items-center gap-2 mb-1.5">
               <Sparkles className="w-4 h-4 text-primary" />
-              <span className="text-sm font-medium text-foreground">Free Plan</span>
+              <span className="text-sm font-semibold text-foreground">Free Plan</span>
             </div>
             <p className="text-xs text-muted-foreground mb-3">
               3 reports remaining this month
             </p>
-            <Button size="sm" className="w-full bg-gradient-primary text-xs">
+            <Button size="sm" className="w-full bg-primary hover:bg-primary/90 text-white text-xs rounded-full font-medium">
               Upgrade to Premium
             </Button>
           </div>
         )}
 
-        {/* Logout */}
-        <div className="p-3 border-t border-sidebar-border">
+        {/* Bottom actions */}
+        <div className="p-3 border-t border-border space-y-0.5">
           <Link
             to="/"
-            className="flex items-center gap-3 px-3 py-3 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors"
+            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-muted-foreground hover:bg-accent/50 hover:text-foreground transition-colors"
           >
-            <LogOut className="w-5 h-5 flex-shrink-0" />
-            {!collapsed && <span className="font-medium">Log Out</span>}
+            <LogOut className="w-[18px] h-[18px] flex-shrink-0" />
+            {!collapsed && <span className="text-sm font-medium">Log Out</span>}
           </Link>
         </div>
 
         {/* Collapse Button */}
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="absolute -right-3 top-20 w-6 h-6 rounded-full bg-sidebar-accent border border-sidebar-border flex items-center justify-center hover:bg-sidebar-accent/80 transition-colors"
+          className="absolute -right-3 top-20 w-6 h-6 rounded-full bg-white border border-border flex items-center justify-center hover:bg-accent transition-colors shadow-sm"
         >
           {collapsed ? (
-            <ChevronRight className="w-4 h-4 text-sidebar-foreground" />
+            <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
           ) : (
-            <ChevronLeft className="w-4 h-4 text-sidebar-foreground" />
+            <ChevronLeft className="w-3.5 h-3.5 text-muted-foreground" />
           )}
         </button>
       </motion.aside>
@@ -134,8 +132,8 @@ const DashboardLayout = ({ children }: SidebarProps) => {
       {/* Main Content */}
       <main
         className={cn(
-          "flex-1 transition-all duration-200",
-          collapsed ? "ml-20" : "ml-[280px]"
+          "flex-1 transition-all duration-200 min-h-screen",
+          collapsed ? "ml-[76px]" : "ml-[260px]"
         )}
       >
         {children}

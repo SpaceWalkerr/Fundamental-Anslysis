@@ -192,7 +192,7 @@ const AnalysisReport = () => {
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5 }}
-          className="flex-1 rounded-xl bg-card border border-border overflow-hidden flex flex-col"
+          className="flex-1 rounded-2xl bg-white border border-border overflow-hidden flex flex-col"
         >
           {/* Header */}
           <div className="p-6 border-b border-border">
@@ -210,7 +210,7 @@ const AnalysisReport = () => {
                 </Button>
                 <Button 
                   size="sm" 
-                  className="gap-2 bg-gradient-primary"
+                  className="gap-2 bg-primary text-white hover:bg-primary/90"
                   onClick={handleExportPDF}
                   disabled={isExporting}
                 >
@@ -223,7 +223,7 @@ const AnalysisReport = () => {
             <div className="flex items-start justify-between">
               <div>
                 <div className="flex items-center gap-3 mb-2">
-                  <h1 className="text-2xl font-serif font-semibold text-foreground">
+                  <h1 className="text-2xl font-bold text-foreground">
                     {reportData.company}
                   </h1>
                   <span className="px-2 py-1 rounded bg-primary/10 text-primary text-sm font-medium">
@@ -242,8 +242,8 @@ const AnalysisReport = () => {
                   Overall Score
                 </div>
                 <div className="flex items-center gap-2">
-                  <TrendingUp className="w-5 h-5 text-success" />
-                  <span className="text-3xl font-serif font-semibold text-success">
+                  <TrendingUp className="w-5 h-5 text-primary" />
+                  <span className="text-3xl font-bold text-primary">
                     {reportData.overallScore}/10
                   </span>
                 </div>
@@ -256,7 +256,7 @@ const AnalysisReport = () => {
             <div className="p-6 space-y-8">
               {/* Executive Summary */}
               <section>
-                <h2 className="text-lg font-serif font-semibold text-foreground mb-3 flex items-center gap-2">
+                <h2 className="text-lg font-bold text-foreground mb-3 flex items-center gap-2">
                   <FileText className="w-5 h-5 text-primary" />
                   Executive Summary
                 </h2>
@@ -267,7 +267,7 @@ const AnalysisReport = () => {
 
               {/* Score Cards */}
               <section>
-                <h2 className="text-lg font-serif font-semibold text-foreground mb-4 flex items-center gap-2">
+                <h2 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
                   <BarChart3 className="w-5 h-5 text-primary" />
                   Financial Health Scores
                 </h2>
@@ -281,7 +281,7 @@ const AnalysisReport = () => {
                         {key}
                       </p>
                       <div className="flex items-end gap-2">
-                        <span className="text-2xl font-serif font-semibold text-foreground">
+                        <span className="text-2xl font-bold text-foreground">
                           {value.score}
                         </span>
                         <span className="text-sm text-muted-foreground mb-1">
@@ -306,7 +306,7 @@ const AnalysisReport = () => {
 
               {/* Key Ratios */}
               <section>
-                <h2 className="text-lg font-serif font-semibold text-foreground mb-4 flex items-center gap-2">
+                <h2 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
                   <PieChart className="w-5 h-5 text-primary" />
                   Key Financial Ratios
                 </h2>
@@ -319,7 +319,7 @@ const AnalysisReport = () => {
                       <p className="text-xs text-muted-foreground mb-1">
                         {ratio.name}
                       </p>
-                      <p className="text-xl font-serif font-semibold text-foreground mb-1">
+                      <p className="text-xl font-bold text-foreground mb-1">
                         {ratio.value}
                       </p>
                       <p className="text-xs text-muted-foreground">
@@ -333,8 +333,8 @@ const AnalysisReport = () => {
               {/* Strengths & Red Flags */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <section>
-                  <h2 className="text-lg font-serif font-semibold text-foreground mb-4 flex items-center gap-2">
-                    <CheckCircle className="w-5 h-5 text-success" />
+                  <h2 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
+                    <CheckCircle className="w-5 h-5 text-primary" />
                     Strengths
                   </h2>
                   <ul className="space-y-3">
@@ -351,7 +351,7 @@ const AnalysisReport = () => {
                 </section>
 
                 <section>
-                  <h2 className="text-lg font-serif font-semibold text-foreground mb-4 flex items-center gap-2">
+                  <h2 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
                     <AlertTriangle className="w-5 h-5 text-warning" />
                     Red Flags & Concerns
                   </h2>
@@ -371,7 +371,7 @@ const AnalysisReport = () => {
 
               {/* Investment Assessment */}
               <section>
-                <h2 className="text-lg font-serif font-semibold text-foreground mb-3 flex items-center gap-2">
+                <h2 className="text-lg font-bold text-foreground mb-3 flex items-center gap-2">
                   <DollarSign className="w-5 h-5 text-primary" />
                   Investment Assessment
                 </h2>
@@ -400,7 +400,7 @@ const AnalysisReport = () => {
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5, delay: 0.2 }}
-          className="w-full lg:w-96 rounded-xl bg-card border border-border overflow-hidden flex flex-col"
+          className="w-full lg:w-96 rounded-2xl bg-white border border-border overflow-hidden flex flex-col"
         >
           {/* Chat Header */}
           <div className="p-4 border-b border-border">
@@ -440,7 +440,7 @@ const AnalysisReport = () => {
               <Button
                 size="icon"
                 onClick={handleSendMessage}
-                className="bg-gradient-primary"
+                className="bg-primary text-white hover:bg-primary/90"
               >
                 <Send className="w-4 h-4" />
               </Button>

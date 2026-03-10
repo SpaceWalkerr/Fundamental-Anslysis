@@ -169,7 +169,7 @@ const CompanySearchResults = ({
               <p className="text-xs text-muted-foreground">{company.sector}</p>
             </div>
             <div className="text-right">
-              <div className="text-lg font-serif font-semibold text-foreground">
+              <div className="text-lg font-bold text-foreground">
                 ${company.price.toFixed(2)}
               </div>
               <div
@@ -221,7 +221,7 @@ const CompanySearchResults = ({
               e.stopPropagation();
               onAnalyze(company);
             }}
-            className="w-full bg-gradient-primary text-xs h-8"
+            className="w-full bg-primary text-white hover:bg-primary/90 text-xs h-8"
           >
             Analyze This Company
           </Button>

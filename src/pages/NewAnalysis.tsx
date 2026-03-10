@@ -17,6 +17,7 @@ import {
   Loader2,
   ArrowRight,
 } from "lucide-react";
+import { AnalysisIllustration } from "@/components/brand/Illustrations";
 
 const NewAnalysis = () => {
   const navigate = useNavigate();
@@ -124,7 +125,7 @@ const NewAnalysis = () => {
           transition={{ duration: 0.5 }}
           className="mb-8"
         >
-          <h1 className="text-3xl font-serif font-semibold text-foreground mb-2">
+          <h1 className="text-3xl font-bold text-foreground mb-2">
             New Analysis
           </h1>
           <p className="text-muted-foreground">
@@ -137,7 +138,7 @@ const NewAnalysis = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.1 }}
-          className="rounded-xl bg-card border border-border p-6 mb-6"
+          className="rounded-2xl bg-white border border-border p-6 mb-6"
         >
           <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
             <Search className="w-5 h-5 text-primary" />
@@ -200,7 +201,7 @@ const NewAnalysis = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.2 }}
-          className="rounded-xl bg-card border border-border p-6"
+          className="rounded-2xl bg-white border border-border p-6"
         >
           <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
             <Upload className="w-5 h-5 text-primary" />
@@ -212,7 +213,7 @@ const NewAnalysis = () => {
               htmlFor="file-upload"
               className={`block border-2 border-dashed rounded-xl p-12 text-center cursor-pointer transition-colors ${
                 dragActive
-                  ? "border-primary bg-primary/5"
+                  ? "border-primary bg-accent/30"
                   : "border-border hover:border-primary/50"
               }`}
               onDragEnter={handleDrag}
@@ -220,9 +221,7 @@ const NewAnalysis = () => {
               onDragOver={handleDrag}
               onDrop={handleDrop}
             >
-              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
-                <Upload className="w-8 h-8 text-primary" />
-              </div>
+              <AnalysisIllustration size={160} className="mx-auto mb-4" />
               <p className="text-foreground font-medium mb-2">
                 Drag & drop files here
               </p>
@@ -274,7 +273,7 @@ const NewAnalysis = () => {
 
                   <Button
                     onClick={handleAnalyze}
-                    className="bg-gradient-primary gap-2"
+                    className="bg-primary text-white hover:bg-primary/90 gap-2"
                   >
                     Start Analysis
                     <ArrowRight className="w-4 h-4" />

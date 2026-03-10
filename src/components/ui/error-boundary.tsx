@@ -45,7 +45,7 @@ export class ErrorBoundary extends React.Component<
             <div className="w-16 h-16 rounded-full bg-destructive/20 flex items-center justify-center mx-auto mb-4">
               <AlertTriangle className="w-8 h-8 text-destructive" />
             </div>
-            <h2 className="text-2xl font-serif font-semibold text-foreground mb-2">
+            <h2 className="text-2xl font-bold text-foreground mb-2">
               Something went wrong
             </h2>
             <p className="text-muted-foreground mb-6">

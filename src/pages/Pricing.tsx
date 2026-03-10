@@ -246,7 +246,7 @@ export default function Pricing() {
           <Card className="relative border-primary shadow-lg">
             {/* Popular Badge */}
             <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-              <Badge className="bg-gradient-to-r from-blue-600 to-purple-600 text-white">
+              <Badge className="bg-primary text-white">
                 <Crown className="h-3 w-3 mr-1" />
                 Most Popular
               </Badge>
@@ -320,7 +320,7 @@ export default function Pricing() {
             </CardContent>
             <CardFooter>
               <Button
-                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                className="w-full bg-primary text-white hover:bg-primary/90"
                 onClick={() => handleSubscribe('premium')}
                 disabled={checkoutLoading === 'premium' || isCurrentPlan('premium')}
               >

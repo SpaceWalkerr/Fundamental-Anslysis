@@ -34,7 +34,7 @@ const ChatMessage = ({
         <div
           className={`px-4 py-3 rounded-xl ${
             isUser
-              ? "bg-gradient-primary text-primary-foreground rounded-br-none"
+              ? "bg-primary text-primary-foreground rounded-br-none"
               : "bg-secondary/80 text-foreground rounded-bl-none border border-border"
           }`}
         >

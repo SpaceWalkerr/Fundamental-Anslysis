@@ -20,7 +20,7 @@ async def lifespan(app: FastAPI):
     Handles startup and shutdown events
     """
     # Startup
-    print("🚀 Starting FundaVision API...")
+    print("🚀 Starting FundaKaMental API...")
     await init_db()
     print("✅ Database initialized")
     
@@ -40,7 +40,7 @@ async def lifespan(app: FastAPI):
     yield
     
     # Shutdown
-    print("👋 Shutting down FundaVision API...")
+    print("👋 Shutting down FundaKaMental API...")
     await market_streamer.stop()
     await alert_checker.stop()
     print("✅ Background services stopped")
@@ -108,7 +108,7 @@ async def health_check():
 async def root():
     """API root endpoint"""
     return {
-        "message": "Welcome to FundaVision API",
+        "message": "Welcome to FundaKaMental API",
         "version": settings.APP_VERSION,
         "docs": "/api/docs",
         "health": "/health",

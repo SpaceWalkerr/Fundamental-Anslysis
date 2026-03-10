@@ -60,7 +60,7 @@ git push -u origin main
 3. Connect your GitHub repository
 4. Configure:
    ```
-   Name: fundavision-backend
+   Name: fundakamental-backend
    Region: (Choose closest)
    Branch: main
    Root Directory: backend
@@ -84,7 +84,7 @@ git push -u origin main
 
 6. Click **"Create Web Service"**
 7. Wait 5-10 minutes for deployment
-8. Copy your backend URL (e.g., `https://fundavision-backend.onrender.com`)
+8. Copy your backend URL (e.g., `https://fundakamental-backend.onrender.com`)
 
 ---
 

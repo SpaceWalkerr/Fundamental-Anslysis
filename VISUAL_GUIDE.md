@@ -1,4 +1,4 @@
-# 🎨 FundaVision - Visual Component Guide
+# 🎨 FundaKaMental - Visual Component Guide
 
 ## Design System Overview
 
@@ -79,7 +79,7 @@ text-4xl:  36px
 ### Dashboard Layout
 ```
 ┌───────────────────────────────────────┐
-│ [≡] FundaVision          👤 Profile   │  <- Header
+│ [≡] FundaKaMental          👤 Profile   │  <- Header
 ├────┬──────────────────────────────────┤
 │    │                                  │
 │ 🏠 │   Quick Actions                  │

@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { Plus, Trash2, TrendingUp, TrendingDown, Target, AlertCircle, Eye, BarChart3 } from 'lucide-react';
 import { api } from '@/lib/api';
+import DashboardLayout from '@/components/dashboard/DashboardLayout';
 
 interface Watchlist {
   id: string;
@@ -199,7 +200,7 @@ export default function Watchlist() {
   const formatChange = (change: number | null, changePct: number | null) => {
     if (change === null || changePct === null) return 'N/A';
     
-    const color = change >= 0 ? 'text-green-600' : 'text-red-600';
+    const color = change >= 0 ? 'text-primary' : 'text-destructive';
     const icon = change >= 0 ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />;
     
     return (
@@ -256,22 +257,25 @@ export default function Watchlist() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading watchlists...</p>
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-[60vh]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+            <p className="mt-4 text-muted-foreground">Loading watchlists...</p>
+          </div>
         </div>
-      </div>
+      </DashboardLayout>
     );
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <DashboardLayout>
+    <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold">Watchlist Manager</h1>
-          <p className="text-gray-600">Track stocks and set price targets</p>
+          <h1 className="text-3xl font-bold text-foreground">Watchlist Manager</h1>
+          <p className="text-muted-foreground">Track stocks and set price targets</p>
         </div>
         
         <div className="flex gap-2">
@@ -437,11 +441,11 @@ export default function Watchlist() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Total Items</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Total Items</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-2">
-                <Eye className="w-5 h-5 text-blue-600" />
+                <Eye className="w-5 h-5 text-primary" />
                 <p className="text-2xl font-bold">{summary.total_items}</p>
               </div>
             </CardContent>
@@ -449,16 +453,16 @@ export default function Watchlist() {
           
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Avg Performance</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Avg Performance</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-2">
                 {summary.avg_change_pct >= 0 ? (
-                  <TrendingUp className="w-5 h-5 text-green-600" />
+                  <TrendingUp className="w-5 h-5 text-primary" />
                 ) : (
-                  <TrendingDown className="w-5 h-5 text-red-600" />
+                  <TrendingDown className="w-5 h-5 text-destructive" />
                 )}
-                <p className={`text-2xl font-bold ${summary.avg_change_pct >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                <p className={`text-2xl font-bold ${summary.avg_change_pct >= 0 ? 'text-primary' : 'text-destructive'}`}>
                   {summary.avg_change_pct >= 0 ? '+' : ''}{summary.avg_change_pct.toFixed(2)}%
                 </p>
               </div>
@@ -467,11 +471,11 @@ export default function Watchlist() {
           
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Targets Hit</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Targets Hit</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-2">
-                <Target className="w-5 h-5 text-green-600" />
+                <Target className="w-5 h-5 text-primary" />
                 <p className="text-2xl font-bold">{summary.targets_hit}</p>
                 {summary.targets_near > 0 && (
                   <Badge variant="secondary">{summary.targets_near} near</Badge>
@@ -482,11 +486,11 @@ export default function Watchlist() {
           
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Tracked Value</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Tracked Value</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-2">
-                <BarChart3 className="w-5 h-5 text-blue-600" />
+                <BarChart3 className="w-5 h-5 text-primary" />
                 <p className="text-2xl font-bold">${summary.tracked_value.toLocaleString()}</p>
               </div>
             </CardContent>
@@ -507,8 +511,8 @@ export default function Watchlist() {
         <CardContent>
           {items.length === 0 ? (
             <div className="text-center py-12">
-              <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600 mb-4">No stocks in this watchlist</p>
+              <AlertCircle className="w-12 h-12 text-muted-foreground/50 mx-auto mb-4" />
+              <p className="text-muted-foreground mb-4">No stocks in this watchlist</p>
               <Button onClick={() => setAddItemDialogOpen(true)}>
                 <Plus className="w-4 h-4 mr-2" />
                 Add Your First Stock
@@ -534,7 +538,7 @@ export default function Watchlist() {
                     <TableCell className="font-medium">
                       {item.ticker}
                       {item.company_name && (
-                        <div className="text-xs text-gray-500">{item.company_name}</div>
+                        <div className="text-xs text-muted-foreground">{item.company_name}</div>
                       )}
                     </TableCell>
                     <TableCell>{formatPrice(item.added_price)}</TableCell>
@@ -549,22 +553,22 @@ export default function Watchlist() {
                           </Badge>
                         </div>
                       ) : (
-                        <span className="text-gray-400">No target</span>
+                        <span className="text-muted-foreground">No target</span>
                       )}
                     </TableCell>
                     <TableCell>
                       {item.target_distance !== null && item.target_distance_pct !== null ? (
                         <div>
-                          <div className={item.target_distance >= 0 ? 'text-green-600' : 'text-red-600'}>
+                          <div className={item.target_distance >= 0 ? 'text-primary' : 'text-destructive'}>
                             {item.target_distance >= 0 ? '+' : ''}{item.target_distance.toFixed(2)}
                           </div>
-                          <div className="text-xs text-gray-500">
+                          <div className="text-xs text-muted-foreground">
                             ({item.target_distance_pct >= 0 ? '+' : ''}{item.target_distance_pct.toFixed(2)}%)
                           </div>
                           {getTargetBadge(item)}
                         </div>
                       ) : (
-                        <span className="text-gray-400">—</span>
+                        <span className="text-muted-foreground">—</span>
                       )}
                     </TableCell>
                     <TableCell>
@@ -577,7 +581,7 @@ export default function Watchlist() {
                           ))}
                         </div>
                       ) : (
-                        <span className="text-gray-400">—</span>
+                        <span className="text-muted-foreground">—</span>
                       )}
                     </TableCell>
                     <TableCell>
@@ -586,7 +590,7 @@ export default function Watchlist() {
                         size="sm"
                         onClick={() => handleRemoveItem(item.id, item.ticker)}
                       >
-                        <Trash2 className="w-4 h-4 text-red-600" />
+                        <Trash2 className="w-4 h-4 text-destructive" />
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -597,5 +601,6 @@ export default function Watchlist() {
         </CardContent>
       </Card>
     </div>
+    </DashboardLayout>
   );
 }

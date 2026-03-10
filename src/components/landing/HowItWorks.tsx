@@ -34,8 +34,8 @@ const steps = [
 
 const HowItWorks = () => {
   return (
-    <section id="how-it-works" className="py-24 md:py-32">
-      <div className="container px-4">
+    <section id="how-it-works" className="py-24 md:py-32 bg-secondary/50">
+      <div className="container px-6">
         {/* Section Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -44,13 +44,12 @@ const HowItWorks = () => {
           transition={{ duration: 0.5 }}
           className="text-center mb-16"
         >
-          <span className="text-primary text-sm font-medium uppercase tracking-wider">
+          <span className="text-primary text-sm font-semibold uppercase tracking-wider">
             How It Works
           </span>
-          <h2 className="text-3xl md:text-4xl lg:text-5xl font-serif font-semibold text-foreground mt-3 mb-4">
-            From Upload to Insight
-            <br />
-            <span className="gradient-text">In Minutes</span>
+          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-foreground mt-3 mb-4">
+            From Upload to Insight{" "}
+            <span className="text-primary">In Minutes</span>
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
             Get institutional-grade analysis without the institutional price tag.
@@ -60,7 +59,7 @@ const HowItWorks = () => {
         {/* Steps */}
         <div className="relative max-w-5xl mx-auto">
           {/* Connection Line */}
-          <div className="hidden lg:block absolute top-1/2 left-0 right-0 h-0.5 bg-border -translate-y-1/2" />
+          <div className="hidden lg:block absolute top-1/2 left-8 right-8 h-[2px] bg-border -translate-y-1/2" />
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             {steps.map((step, index) => (
@@ -73,18 +72,18 @@ const HowItWorks = () => {
                 className="relative"
               >
                 <div className="relative z-10 flex flex-col items-center text-center">
-                  {/* Step Number */}
-                  <div className="w-16 h-16 rounded-full bg-gradient-primary flex items-center justify-center mb-6 shadow-glow">
-                    <step.icon className="w-7 h-7 text-primary-foreground" />
+                  {/* Step Circle */}
+                  <div className="w-16 h-16 rounded-full bg-primary flex items-center justify-center mb-6 shadow-md">
+                    <step.icon className="w-7 h-7 text-white" />
                   </div>
 
                   {/* Step Label */}
-                  <span className="text-xs font-medium text-primary uppercase tracking-wider mb-2">
+                  <span className="text-xs font-bold text-primary uppercase tracking-wider mb-2">
                     Step {step.step}
                   </span>
 
                   {/* Title */}
-                  <h3 className="text-xl font-serif font-semibold text-foreground mb-3">
+                  <h3 className="text-lg font-bold text-foreground mb-3">
                     {step.title}
                   </h3>
 

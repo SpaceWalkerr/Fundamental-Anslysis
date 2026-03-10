@@ -44,7 +44,7 @@ vercel
 
 # Follow prompts:
 # - Link to existing project? No
-# - Project name: fundavision (or your choice)
+# - Project name: fundakamental (or your choice)
 # - Directory: ./ (current directory)
 # - Override settings? No
 ```
@@ -100,7 +100,7 @@ CORS_ORIGINS=https://your-frontend.vercel.app
 2. Click **"New +"** → **"Web Service"**
 3. Connect your Git repository
 4. Configure:
-   - **Name**: fundavision-backend
+   - **Name**: fundakamental-backend
    - **Region**: Choose closest to you
    - **Branch**: main (or master)
    - **Root Directory**: `backend`
@@ -126,7 +126,7 @@ CORS_ORIGINS=https://your-frontend.vercel.app
 
 7. Wait for deployment (5-10 minutes)
 
-8. Copy your backend URL: `https://fundavision-backend.onrender.com`
+8. Copy your backend URL: `https://fundakamental-backend.onrender.com`
 
 **Option B: Using render.yaml (Blueprint)**
 1. Push `render.yaml` to your repo
@@ -150,7 +150,7 @@ CORS_ORIGINS=https://your-frontend.vercel.app
 3. Go to **Settings** → **Environment Variables**
 4. Update `VITE_API_URL` to your Render backend URL:
    ```
-   VITE_API_URL=https://fundavision-backend.onrender.com
+   VITE_API_URL=https://fundakamental-backend.onrender.com
    ```
 5. Go to **Deployments** tab
 6. Click **"..."** on latest deployment → **"Redeploy"**

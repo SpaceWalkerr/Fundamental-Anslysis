@@ -35,7 +35,7 @@ export const StatCard = ({
         {icon && <div className="text-muted-foreground">{icon}</div>}
       </div>
       <div className="flex items-baseline gap-2">
-        <p className="text-2xl font-serif font-semibold text-foreground">
+        <p className="text-2xl font-bold text-foreground">
           {value}
         </p>
         {change !== undefined && (

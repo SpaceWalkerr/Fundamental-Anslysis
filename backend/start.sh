@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# FundaVision Backend - Development Server Start Script
+# FundaKaMental Backend - Development Server Start Script
 
-echo "🚀 Starting FundaVision Backend API..."
+echo "🚀 Starting FundaKaMental Backend API..."
 
 # Check if virtual environment exists
 if [ ! -d "venv" ]; then

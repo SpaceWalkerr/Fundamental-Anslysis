@@ -334,7 +334,7 @@ const StockScanner = () => {
           className="mb-8"
         >
           <div className="flex items-center gap-2 mb-2">
-            <h1 className="text-3xl font-serif font-semibold text-foreground">
+            <h1 className="text-3xl font-bold text-foreground">
               Stock Scanner
             </h1>
             <span className="px-2 py-1 rounded bg-warning/10 text-warning text-xs font-medium flex items-center gap-1">
@@ -352,7 +352,7 @@ const StockScanner = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.1 }}
-          className="rounded-xl bg-card border border-border p-6 mb-6"
+          className="rounded-2xl bg-white border border-border p-6 mb-6"
         >
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
@@ -447,7 +447,7 @@ const StockScanner = () => {
           </div>
 
           <div className="flex items-center gap-3 mt-6">
-            <Button onClick={runScan} className="bg-gradient-primary gap-2" disabled={isScanning}>
+            <Button onClick={runScan} className="bg-primary text-white hover:bg-primary/90 gap-2" disabled={isScanning}>
               <Play className="w-4 h-4" />
               {isScanning ? "Scanning..." : "Run Scan"}
             </Button>
@@ -470,7 +470,7 @@ const StockScanner = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.2 }}
-          className="rounded-xl bg-card border border-border overflow-hidden"
+          className="rounded-2xl bg-white border border-border overflow-hidden"
         >
           <div className="p-4 border-b border-border flex items-center justify-between">
             <h2 className="font-semibold text-foreground">
@@ -571,7 +571,7 @@ const StockScanner = () => {
                       </div>
                     </td>
                     <td className="py-4 px-4">
-                      <span className="px-2 py-1 rounded bg-secondary text-xs text-muted-foreground">
+                      <span className="px-2 py-1 rounded-full bg-accent/30 text-xs text-primary font-medium">
                         {stock.sector}
                       </span>
                     </td>
@@ -613,10 +613,10 @@ const StockScanner = () => {
                               transition={{ delay: 0.1, duration: 0.8 }}
                               className={`h-full rounded-full ${
                                 stock.matchScore >= 90
-                                  ? "bg-gradient-to-r from-success to-emerald-400"
+                                  ? "bg-primary"
                                   : stock.matchScore >= 75
-                                  ? "bg-gradient-to-r from-primary to-blue-400"
-                                  : "bg-gradient-to-r from-warning to-amber-400"
+                                  ? "bg-primary/70"
+                                  : "bg-warning"
                               }`}
                             />
                           </div>

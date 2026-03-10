@@ -43,7 +43,7 @@ git push -u origin main
 4. **Connect GitHub Repository**
 5. Configure:
    ```
-   Name: fundavision-backend
+   Name: fundakamental-backend
    Region: (closest to you)
    Branch: main
    Root Directory: backend
@@ -68,7 +68,7 @@ git push -u origin main
 
 7. Click **"Create Web Service"**
 8. Wait for deployment (~10 minutes)
-9. **Copy your backend URL** (e.g., `https://fundavision-backend.onrender.com`)
+9. **Copy your backend URL** (e.g., `https://fundakamental-backend.onrender.com`)
 
 ---
 
@@ -97,7 +97,7 @@ git push -u origin main
 
 7. Click **"Deploy"**
 8. Wait for deployment (~5 minutes)
-9. **Copy your frontend URL** (e.g., `https://fundavision.vercel.app`)
+9. **Copy your frontend URL** (e.g., `https://fundakamental.vercel.app`)
 
 ---
 
@@ -123,7 +123,7 @@ git push -u origin main
 curl https://YOUR-BACKEND.onrender.com/
 
 # Should return:
-# {"message":"Welcome to FundaVision API",...}
+# {"message":"Welcome to FundaKaMental API",...}
 
 # Test stock screener
 curl -X POST https://YOUR-BACKEND.onrender.com/api/stocks/screener \

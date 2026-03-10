@@ -23,14 +23,32 @@ interface AuthState {
   initializeAuth: () => Promise<void>;
 }
 
+// TEMPORARY: Bypass login for development
+const BYPASS_LOGIN = true;
+const mockUser: User = {
+  id: 'dev-user-123',
+  name: 'Dev User',
+  email: 'dev@example.com',
+  avatar: undefined,
+  plan: 'premium',
+  reportsUsed: 5,
+  reportsLimit: 100,
+};
+
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
-      user: null,
-      isAuthenticated: false,
+      user: BYPASS_LOGIN ? mockUser : null,
+      isAuthenticated: BYPASS_LOGIN,
       isLoading: false,
 
       initializeAuth: async () => {
+        // TEMPORARY: Skip auth if bypass is enabled
+        if (BYPASS_LOGIN) {
+          set({ user: mockUser, isAuthenticated: true, isLoading: false });
+          return;
+        }
+        
         set({ isLoading: true });
         try {
           const token = localStorage.getItem('auth_token');

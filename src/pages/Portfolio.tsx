@@ -214,7 +214,7 @@ const Portfolio = () => {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-serif font-semibold text-foreground">
+            <h1 className="text-3xl font-bold text-foreground">
               {selectedPortfolio.name}
             </h1>
             <p className="text-muted-foreground mt-1">
@@ -224,7 +224,7 @@ const Portfolio = () => {
           
           <Dialog open={showTransactionDialog} onOpenChange={setShowTransactionDialog}>
             <DialogTrigger asChild>
-              <Button className="bg-gradient-primary gap-2">
+              <Button className="bg-primary text-white hover:bg-primary/90 gap-2">
                 <Plus className="w-4 h-4" />
                 Add Transaction
               </Button>
@@ -448,7 +448,7 @@ const Portfolio = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5 }}
-          className="rounded-xl bg-card border border-border overflow-hidden"
+          className="rounded-2xl bg-white border border-border overflow-hidden"
         >
           <div className="p-4 border-b border-border">
             <h2 className="font-semibold text-foreground">Holdings</h2>

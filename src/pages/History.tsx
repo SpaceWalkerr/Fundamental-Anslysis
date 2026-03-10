@@ -94,7 +94,7 @@ const History = () => {
           transition={{ duration: 0.5 }}
           className="mb-8"
         >
-          <h1 className="text-3xl font-serif font-semibold text-foreground mb-2">
+          <h1 className="text-3xl font-bold text-foreground mb-2">
             Report History
           </h1>
           <p className="text-muted-foreground">
@@ -116,7 +116,7 @@ const History = () => {
               placeholder="Search reports..."
               value={searchQuery}
               onChange={(e) => handleSearch(e.target.value)}
-              className="pl-10 bg-card border-border"
+              className="pl-10 bg-white border-border"
             />
           </div>
           <Button variant="outline" className="gap-2">
@@ -138,7 +138,7 @@ const History = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3, delay: 0.1 * index }}
-              className="group p-5 rounded-xl bg-card border border-border hover:border-primary/50 transition-all duration-300 data-card"
+              className="group p-5 rounded-2xl bg-white border border-border hover:border-primary/50 transition-all duration-300 shadow-sm"
             >
               <div className="flex items-start justify-between mb-4">
                 <div>
@@ -146,7 +146,7 @@ const History = () => {
                     {report.company}
                   </h3>
                   <div className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 rounded bg-secondary text-xs text-muted-foreground">
+                    <span className="px-2 py-0.5 rounded-full bg-accent/30 text-xs text-primary font-medium">
                       {report.ticker}
                     </span>
                     <span className="text-xs text-muted-foreground flex items-center gap-1">

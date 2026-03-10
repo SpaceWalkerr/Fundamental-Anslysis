@@ -32,7 +32,7 @@ const Settings = () => {
           transition={{ duration: 0.5 }}
           className="mb-8"
         >
-          <h1 className="text-3xl font-serif font-semibold text-foreground mb-2">
+          <h1 className="text-3xl font-bold text-foreground mb-2">
             Settings
           </h1>
           <p className="text-muted-foreground">
@@ -46,7 +46,7 @@ const Settings = () => {
           transition={{ duration: 0.5, delay: 0.1 }}
         >
           <Tabs defaultValue="profile" className="space-y-6">
-            <TabsList className="bg-secondary p-1 rounded-lg">
+            <TabsList className="bg-secondary/50 p-1 rounded-xl">
               <TabsTrigger value="profile" className="gap-2">
                 <User className="w-4 h-4" />
                 Profile
@@ -67,13 +67,13 @@ const Settings = () => {
 
             {/* Profile Tab */}
             <TabsContent value="profile" className="space-y-6">
-              <div className="rounded-xl bg-card border border-border p-6">
+              <div className="rounded-2xl bg-white border border-border p-6">
                 <h2 className="text-lg font-semibold text-foreground mb-6">
                   Profile Information
                 </h2>
                 <div className="grid gap-6">
                   <div className="flex items-center gap-6">
-                    <div className="w-20 h-20 rounded-full bg-gradient-primary flex items-center justify-center text-2xl font-serif font-semibold text-primary-foreground">
+                    <div className="w-20 h-20 rounded-full bg-primary flex items-center justify-center text-2xl font-bold text-primary-foreground">
                       JA
                     </div>
                     <div>
@@ -115,7 +115,7 @@ const Settings = () => {
                     />
                   </div>
 
-                  <Button className="w-fit bg-gradient-primary">
+                  <Button className="w-fit bg-primary text-white hover:bg-primary/90">
                     Save Changes
                   </Button>
                 </div>
@@ -124,7 +124,7 @@ const Settings = () => {
 
             {/* Subscription Tab */}
             <TabsContent value="subscription" className="space-y-6">
-              <div className="rounded-xl bg-card border border-border p-6">
+              <div className="rounded-2xl bg-white border border-border p-6">
                 <h2 className="text-lg font-semibold text-foreground mb-6">
                   Current Plan
                 </h2>
@@ -149,7 +149,7 @@ const Settings = () => {
 
                 <div className="p-4 rounded-lg bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20">
                   <div className="flex items-start gap-4">
-                    <div className="w-10 h-10 rounded-lg bg-gradient-primary flex items-center justify-center">
+                    <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
                       <Sparkles className="w-5 h-5 text-primary-foreground" />
                     </div>
                     <div className="flex-1">
@@ -176,7 +176,7 @@ const Settings = () => {
                           </li>
                         ))}
                       </ul>
-                      <Button className="bg-gradient-primary">
+                      <Button className="bg-primary text-white hover:bg-primary/90">
                         Upgrade for $29/month
                       </Button>
                     </div>
@@ -187,7 +187,7 @@ const Settings = () => {
 
             {/* Notifications Tab */}
             <TabsContent value="notifications" className="space-y-6">
-              <div className="rounded-xl bg-card border border-border p-6">
+              <div className="rounded-2xl bg-white border border-border p-6">
                 <h2 className="text-lg font-semibold text-foreground mb-6">
                   Notification Preferences
                 </h2>
@@ -240,7 +240,7 @@ const Settings = () => {
 
             {/* Security Tab */}
             <TabsContent value="security" className="space-y-6">
-              <div className="rounded-xl bg-card border border-border p-6">
+              <div className="rounded-2xl bg-white border border-border p-6">
                 <h2 className="text-lg font-semibold text-foreground mb-6">
                   Security Settings
                 </h2>

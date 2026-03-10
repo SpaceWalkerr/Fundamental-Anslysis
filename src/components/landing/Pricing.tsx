@@ -59,7 +59,7 @@ const plans = [
 
 const Pricing = () => {
   return (
-    <section id="pricing" className="py-24 md:py-32 bg-card/50">
+    <section id="pricing" className="py-24 md:py-32 bg-white">
       <div className="container px-4">
         {/* Section Header */}
         <motion.div
@@ -72,10 +72,10 @@ const Pricing = () => {
           <span className="text-primary text-sm font-medium uppercase tracking-wider">
             Pricing
           </span>
-          <h2 className="text-3xl md:text-4xl lg:text-5xl font-serif font-semibold text-foreground mt-3 mb-4">
+          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold font-semibold text-foreground mt-3 mb-4">
             Simple, Transparent
             <br />
-            <span className="gradient-text">Pricing</span>
+            <span className="text-primary">Pricing</span>
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
             Start free and upgrade when you're ready. No hidden fees.
@@ -93,13 +93,13 @@ const Pricing = () => {
               transition={{ duration: 0.5, delay: index * 0.1 }}
               className={`relative rounded-2xl p-8 ${
                 plan.popular
-                  ? "bg-gradient-to-b from-primary/20 to-card border-2 border-primary"
-                  : "bg-card border border-border"
+                  ? "bg-white border-2 border-primary shadow-lg"
+                  : "bg-white border border-border rounded-2xl"
               }`}
             >
               {/* Popular Badge */}
               {plan.popular && (
-                <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-gradient-primary text-primary-foreground text-sm font-medium flex items-center gap-1">
+                <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-primary text-white text-sm font-medium flex items-center gap-1">
                   <Sparkles className="w-4 h-4" />
                   Most Popular
                 </div>
@@ -107,14 +107,14 @@ const Pricing = () => {
 
               {/* Plan Header */}
               <div className="text-center mb-8">
-                <h3 className="text-xl font-serif font-semibold text-foreground mb-2">
+                <h3 className="text-xl font-bold font-semibold text-foreground mb-2">
                   {plan.name}
                 </h3>
                 <p className="text-sm text-muted-foreground mb-4">
                   {plan.description}
                 </p>
                 <div className="flex items-baseline justify-center gap-1">
-                  <span className="text-4xl font-serif font-semibold text-foreground">
+                  <span className="text-4xl font-bold font-semibold text-foreground">
                     {plan.price}
                   </span>
                   <span className="text-muted-foreground">{plan.period}</span>
@@ -136,9 +136,9 @@ const Pricing = () => {
               {/* CTA */}
               <Link to="/register">
                 <Button
-                  className={`w-full ${
+                  className={`w-full rounded-full ${
                     plan.popular
-                      ? "bg-gradient-primary hover:opacity-90"
+                      ? "bg-primary hover:bg-primary/90 text-white"
                       : "bg-secondary hover:bg-secondary/80"
                   }`}
                   size="lg"

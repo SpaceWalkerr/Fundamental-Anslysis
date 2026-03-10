@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     """Application settings from environment variables"""
     
     # Application
-    APP_NAME: str = "FundaVision API"
+    APP_NAME: str = "FundaKaMental API"
     APP_VERSION: str = "1.0.0"
     ENVIRONMENT: str = "development"
     DEBUG: bool = False

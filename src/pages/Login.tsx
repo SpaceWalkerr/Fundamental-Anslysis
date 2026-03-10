@@ -4,9 +4,11 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { TrendingUp, Mail, Lock, ArrowRight, Eye, EyeOff } from "lucide-react";
+import { Mail, Lock, ArrowRight, Eye, EyeOff } from "lucide-react";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useToast } from "@/hooks/use-toast";
+import Logo from "@/components/brand/Logo";
+import { SecurityIllustration } from "@/components/brand/Illustrations";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -49,16 +51,11 @@ const Login = () => {
         >
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2 mb-8">
-            <div className="w-10 h-10 rounded-lg bg-gradient-primary flex items-center justify-center">
-              <TrendingUp className="w-6 h-6 text-primary-foreground" />
-            </div>
-            <span className="font-serif text-xl font-semibold text-foreground">
-              FundaVision
-            </span>
+            <Logo size="lg" />
           </Link>
 
           {/* Header */}
-          <h1 className="text-3xl font-serif font-semibold text-foreground mb-2">
+          <h1 className="text-3xl font-bold text-foreground mb-2">
             Welcome back
           </h1>
           <p className="text-muted-foreground mb-8">
@@ -120,7 +117,7 @@ const Login = () => {
 
             <Button
               type="submit"
-              className="w-full h-12 bg-gradient-primary hover:opacity-90 text-lg"
+              className="w-full h-12 bg-primary text-white hover:bg-primary/90 text-lg"
               disabled={isLoading}
             >
               {isLoading ? (
@@ -188,18 +185,16 @@ const Login = () => {
       </div>
 
       {/* Right Panel - Visual */}
-      <div className="hidden lg:flex flex-1 items-center justify-center p-8 bg-gradient-to-br from-primary/20 to-accent/20 relative overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(59,130,246,0.1),transparent_50%)]" />
+      <div className="hidden lg:flex flex-1 items-center justify-center p-8 bg-secondary/50 relative overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(34,197,94,0.08),transparent_50%)]" />
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.7, delay: 0.2 }}
           className="relative text-center z-10"
         >
-          <div className="w-32 h-32 rounded-full bg-gradient-primary mx-auto mb-8 flex items-center justify-center shadow-glow">
-            <TrendingUp className="w-16 h-16 text-primary-foreground" />
-          </div>
-          <h2 className="text-3xl font-serif font-semibold text-foreground mb-4">
+          <SecurityIllustration size={280} className="mx-auto mb-8" />
+          <h2 className="text-3xl font-bold text-foreground mb-4">
             Smarter Investing Starts Here
           </h2>
           <p className="text-muted-foreground max-w-sm">

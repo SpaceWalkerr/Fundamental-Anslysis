@@ -1,147 +1,91 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Fundamental Analysis Platform - Design System
-   Aesthetic: Bloomberg Terminal meets modern fintech
-   Dark, sophisticated, data-rich but clean */
+/* FundaKaMental Design System — Xtin Capital Aligned
+   Aesthetic: Clean, minimal, professional fintech
+   Green-accent on white, spacious, beginner-friendly */
 
 @layer base {
   :root {
-    /* Primary: Deep Navy */
-    --background: 222 47% 11%;
-    --foreground: 210 40% 98%;
+    /* Background: Clean white */
+    --background: 0 0% 99%;
+    --foreground: 220 20% 12%;
 
     /* Card surfaces */
-    --card: 222 47% 14%;
-    --card-foreground: 210 40% 98%;
+    --card: 0 0% 100%;
+    --card-foreground: 220 20% 12%;
 
     /* Popover/Dropdown */
-    --popover: 222 47% 12%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 20% 12%;
 
-    /* Primary accent: Electric Blue */
-    --primary: 217 91% 60%;
-    --primary-foreground: 222 47% 11%;
+    /* Primary: Xtin Capital Green */
+    --primary: 152 69% 31%;
+    --primary-foreground: 0 0% 100%;
 
-    /* Secondary: Muted slate */
-    --secondary: 217 33% 17%;
-    --secondary-foreground: 210 40% 98%;
+    /* Secondary: Light gray */
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 220 20% 12%;
 
     /* Muted */
-    --muted: 217 33% 17%;
-    --muted-foreground: 215 20% 65%;
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 46%;
 
-    /* Accent: Teal highlight */
-    --accent: 172 66% 50%;
-    --accent-foreground: 222 47% 11%;
+    /* Accent: Soft green tint */
+    --accent: 152 40% 95%;
+    --accent-foreground: 152 69% 26%;
 
     /* Status colors */
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
 
-    --success: 142 76% 36%;
-    --success-foreground: 210 40% 98%;
+    --success: 152 69% 31%;
+    --success-foreground: 0 0% 100%;
 
     --warning: 38 92% 50%;
-    --warning-foreground: 222 47% 11%;
+    --warning-foreground: 220 20% 12%;
 
     /* Borders and inputs */
-    --border: 217 33% 22%;
-    --input: 217 33% 17%;
-    --ring: 217 91% 60%;
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 152 69% 31%;
 
-    --radius: 0.5rem;
+    --radius: 0.75rem;
 
     /* Sidebar */
-    --sidebar-background: 222 47% 9%;
-    --sidebar-foreground: 215 20% 65%;
-    --sidebar-primary: 217 91% 60%;
-    --sidebar-primary-foreground: 222 47% 11%;
-    --sidebar-accent: 217 33% 15%;
-    --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 217 33% 18%;
-    --sidebar-ring: 217 91% 60%;
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 220 9% 46%;
+    --sidebar-primary: 152 69% 31%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 152 40% 95%;
+    --sidebar-accent-foreground: 220 20% 12%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 152 69% 31%;
 
     /* Chart colors for financial data */
-    --chart-positive: 142 76% 36%;
-    --chart-negative: 0 84% 60%;
-    --chart-neutral: 217 91% 60%;
-    --chart-1: 217 91% 60%;
-    --chart-2: 172 66% 50%;
+    --chart-positive: 152 69% 31%;
+    --chart-negative: 0 72% 51%;
+    --chart-neutral: 220 9% 46%;
+    --chart-1: 152 69% 31%;
+    --chart-2: 199 89% 48%;
     --chart-3: 262 83% 58%;
     --chart-4: 38 92% 50%;
     --chart-5: 340 82% 52%;
 
-    /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(217, 91%, 60%) 0%, hsl(262, 83%, 58%) 100%);
-    --gradient-accent: linear-gradient(135deg, hsl(172, 66%, 50%) 0%, hsl(217, 91%, 60%) 100%);
-    --gradient-hero: linear-gradient(180deg, hsl(222, 47%, 11%) 0%, hsl(222, 47%, 8%) 100%);
-    --gradient-card: linear-gradient(135deg, hsl(222, 47%, 16%) 0%, hsl(222, 47%, 12%) 100%);
+    /* Gradients — Xtin Capital style */
+    --gradient-primary: linear-gradient(135deg, hsl(152, 69%, 31%) 0%, hsl(152, 69%, 38%) 100%);
+    --gradient-accent: linear-gradient(135deg, hsl(152, 40%, 95%) 0%, hsl(152, 45%, 90%) 100%);
+    --gradient-hero: linear-gradient(180deg, hsl(0, 0%, 100%) 0%, hsl(152, 30%, 97%) 100%);
+    --gradient-card: linear-gradient(135deg, hsl(0, 0%, 100%) 0%, hsl(220, 14%, 98%) 100%);
 
-    /* Shadows */
-    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
-    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
-    --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
-    --shadow-glow: 0 0 40px rgba(59, 130, 246, 0.3);
-  }
-
-  /* Light mode - clean professional */
-  .light {
-    --background: 0 0% 100%;
-    --foreground: 222 47% 11%;
-
-    --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
-
-    --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
-
-    --primary: 217 91% 50%;
-    --primary-foreground: 0 0% 100%;
-
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 222 47% 11%;
-
-    --muted: 210 40% 96%;
-    --muted-foreground: 215 16% 47%;
-
-    --accent: 172 66% 40%;
-    --accent-foreground: 0 0% 100%;
-
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 100%;
-
-    --success: 142 76% 36%;
-    --success-foreground: 0 0% 100%;
-
-    --warning: 38 92% 50%;
-    --warning-foreground: 222 47% 11%;
-
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 217 91% 50%;
-
-    --sidebar-background: 210 40% 98%;
-    --sidebar-foreground: 215 16% 47%;
-    --sidebar-primary: 217 91% 50%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 210 40% 96%;
-    --sidebar-accent-foreground: 222 47% 11%;
-    --sidebar-border: 214 32% 91%;
-    --sidebar-ring: 217 91% 50%;
-
-    --gradient-primary: linear-gradient(135deg, hsl(217, 91%, 50%) 0%, hsl(262, 83%, 58%) 100%);
-    --gradient-accent: linear-gradient(135deg, hsl(172, 66%, 40%) 0%, hsl(217, 91%, 50%) 100%);
-    --gradient-hero: linear-gradient(180deg, hsl(210, 40%, 98%) 0%, hsl(210, 40%, 96%) 100%);
-    --gradient-card: linear-gradient(135deg, hsl(0, 0%, 100%) 0%, hsl(210, 40%, 98%) 100%);
-
-    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
-    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.12);
-    --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.16);
-    --shadow-glow: 0 0 40px rgba(59, 130, 246, 0.15);
+    /* Shadows — softer for light theme */
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.06);
+    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.04), 0 2px 4px rgba(0, 0, 0, 0.06);
+    --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.06), 0 4px 10px rgba(0, 0, 0, 0.04);
+    --shadow-glow: 0 0 30px rgba(34, 139, 80, 0.12);
   }
 }
 
@@ -159,38 +103,55 @@
     font-family: 'Inter', system-ui, sans-serif;
   }
 
-  /* Typography */
+  /* Typography — use Plus Jakarta Sans for headings (modern fintech feel) */
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'DM Serif Display', serif;
-    @apply tracking-tight;
+    font-family: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+    @apply tracking-tight font-bold;
   }
 
-  /* Custom scrollbar */
+  /* Custom scrollbar — subtle */
   ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
   }
 
   ::-webkit-scrollbar-track {
-    @apply bg-background;
+    @apply bg-transparent;
   }
 
   ::-webkit-scrollbar-thumb {
-    @apply bg-muted rounded-full;
+    @apply bg-border rounded-full;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    @apply bg-muted-foreground/50;
+    @apply bg-muted-foreground/30;
   }
 }
 
 @layer components {
-  /* Glass morphism effect */
-  .glass {
-    @apply bg-card/80 backdrop-blur-xl border border-border/50;
+  /* Gradient backgrounds — Xtin Capital style */
+  .bg-gradient-primary {
+    background: var(--gradient-primary);
   }
 
-  /* Gradient text */
+  .bg-gradient-accent {
+    background: var(--gradient-accent);
+  }
+
+  .bg-gradient-hero {
+    background: var(--gradient-hero);
+  }
+
+  .bg-gradient-card {
+    background: var(--gradient-card);
+  }
+
+  /* Glass morphism effect — lighter */
+  .glass {
+    @apply bg-white/80 backdrop-blur-xl border border-border/50;
+  }
+
+  /* Gradient text — green */
   .gradient-text {
     background: var(--gradient-primary);
     -webkit-background-clip: text;
@@ -217,7 +178,7 @@
     pointer-events: none;
   }
 
-  /* Glow effect */
+  /* Glow effect — green */
   .glow {
     box-shadow: var(--shadow-glow);
   }
@@ -245,13 +206,13 @@
     @apply text-muted-foreground;
   }
 
-  /* Financial data table */
+  /* Financial data table — clean */
   .data-table {
     @apply w-full text-sm;
   }
 
   .data-table th {
-    @apply text-left font-medium text-muted-foreground uppercase text-xs tracking-wider py-3 px-4 border-b border-border;
+    @apply text-left font-semibold text-muted-foreground uppercase text-xs tracking-wider py-3 px-4 border-b border-border;
   }
 
   .data-table td {
@@ -259,7 +220,7 @@
   }
 
   .data-table tr:hover {
-    @apply bg-secondary/50;
+    @apply bg-accent/50;
   }
 
   /* Chat bubble styles */
@@ -269,6 +230,25 @@
 
   .chat-bubble-assistant {
     @apply bg-secondary text-secondary-foreground rounded-2xl rounded-bl-sm;
+  }
+
+  /* Xtin-style card */
+  .xtin-card {
+    @apply bg-white rounded-2xl border border-border p-6 shadow-sm transition-all duration-300;
+  }
+
+  .xtin-card:hover {
+    @apply shadow-md border-primary/20;
+  }
+
+  /* Beginner tooltip badge */
+  .help-badge {
+    @apply inline-flex items-center gap-1 text-xs text-muted-foreground bg-accent px-2 py-0.5 rounded-full cursor-help;
+  }
+
+  /* Status pill */
+  .status-pill {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium;
   }
 }
 

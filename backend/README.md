@@ -1,4 +1,4 @@
-# FastAPI Backend - FundaVision
+# FastAPI Backend - FundaKaMental
 
 AI-powered fundamental analysis platform backend built with FastAPI, Supabase, and LangChain.
 
@@ -185,8 +185,8 @@ The app uses Supabase, so database schema is managed through SQL:
 ### Deploy to Cloud
 ```bash
 # Using Docker (coming soon)
-docker build -t fundavision-api .
-docker run -p 8000:8000 fundavision-api
+docker build -t fundakamental-api .
+docker run -p 8000:8000 fundakamental-api
 
 # Using Railway/Render/etc.
 # Push to GitHub and connect repository

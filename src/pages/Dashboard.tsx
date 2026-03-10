@@ -13,6 +13,7 @@ import {
   Clock,
   ArrowRight,
   Plus,
+  HelpCircle,
 } from "lucide-react";
 
 const recentReports = [
@@ -62,10 +63,10 @@ const Dashboard = () => {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
+          transition={{ duration: 0.4 }}
           className="mb-8"
         >
-          <h1 className="text-3xl font-serif font-semibold text-foreground mb-2">
+          <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-1">
             Welcome back, John
           </h1>
           <p className="text-muted-foreground">
@@ -73,34 +74,34 @@ const Dashboard = () => {
           </p>
         </motion.div>
 
-        {/* Search & Upload */}
+        {/* Search & Upload — clean white cards */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.1 }}
+          transition={{ duration: 0.4, delay: 0.1 }}
           className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8"
         >
-          {/* Search */}
-          <div className="p-6 rounded-xl bg-card border border-border">
-            <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-              <Search className="w-5 h-5 text-primary" />
+          {/* Search Company */}
+          <div className="p-6 rounded-2xl bg-white border border-border shadow-sm">
+            <h2 className="text-base font-bold text-foreground mb-4 flex items-center gap-2">
+              <Search className="w-4 h-4 text-primary" />
               Search Company
             </h2>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 type="text"
                 placeholder="Search by company name or ticker..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 h-12 bg-secondary border-border"
+                className="pl-10 h-11 bg-secondary/50 border-border rounded-xl"
               />
             </div>
             <div className="flex flex-wrap gap-2 mt-4">
               {["AAPL", "MSFT", "GOOGL", "AMZN"].map((ticker) => (
                 <button
                   key={ticker}
-                  className="px-3 py-1.5 rounded-full bg-secondary text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors"
+                  className="px-3 py-1.5 rounded-full bg-accent text-xs font-medium text-primary hover:bg-primary/10 transition-colors"
                 >
                   {ticker}
                 </button>
@@ -109,19 +110,19 @@ const Dashboard = () => {
           </div>
 
           {/* Upload */}
-          <div className="p-6 rounded-xl bg-card border border-border border-dashed">
-            <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-              <Upload className="w-5 h-5 text-primary" />
+          <div className="p-6 rounded-2xl bg-white border border-dashed border-border shadow-sm">
+            <h2 className="text-base font-bold text-foreground mb-4 flex items-center gap-2">
+              <Upload className="w-4 h-4 text-primary" />
               Upload Financial Statements
             </h2>
-            <div className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary/50 transition-colors cursor-pointer">
-              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
-                <Plus className="w-6 h-6 text-primary" />
+            <div className="border-2 border-dashed border-border rounded-xl p-8 text-center hover:border-primary/40 transition-colors cursor-pointer bg-accent/30">
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
+                <Plus className="w-5 h-5 text-primary" />
               </div>
-              <p className="text-muted-foreground mb-2">
+              <p className="text-sm text-muted-foreground mb-1">
                 Drag & drop files here or click to browse
               </p>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground/70">
                 Supports PDF, Excel, CSV (max 25MB)
               </p>
             </div>
@@ -134,41 +135,41 @@ const Dashboard = () => {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
+            transition={{ duration: 0.4, delay: 0.2 }}
             className="lg:col-span-2"
           >
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
-                <Clock className="w-5 h-5 text-primary" />
+              <h2 className="text-base font-bold text-foreground flex items-center gap-2">
+                <Clock className="w-4 h-4 text-primary" />
                 Recent Reports
               </h2>
               <Link to="/dashboard/history">
-                <Button variant="ghost" size="sm" className="text-primary">
+                <Button variant="ghost" size="sm" className="text-primary hover:text-primary/80 text-sm font-medium gap-1">
                   View All
-                  <ArrowRight className="w-4 h-4 ml-1" />
+                  <ArrowRight className="w-3.5 h-3.5" />
                 </Button>
               </Link>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-3">
               {recentReports.map((report, index) => (
                 <motion.div
                   key={report.id}
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.3, delay: 0.1 * index }}
+                  transition={{ duration: 0.3, delay: 0.05 * index }}
                 >
                   <Link
                     to={`/dashboard/report/${report.id}`}
-                    className="block p-5 rounded-xl bg-card border border-border hover:border-primary/50 transition-all duration-300 data-card"
+                    className="block p-5 rounded-2xl bg-white border border-border hover:border-primary/30 hover:shadow-md transition-all duration-300"
                   >
-                    <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-start justify-between mb-2">
                       <div>
                         <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-semibold text-foreground">
+                          <h3 className="font-bold text-foreground text-sm">
                             {report.company}
                           </h3>
-                          <span className="px-2 py-0.5 rounded bg-secondary text-xs text-muted-foreground">
+                          <span className="px-2 py-0.5 rounded-full bg-secondary text-xs text-muted-foreground font-medium">
                             {report.ticker}
                           </span>
                         </div>
@@ -177,23 +178,19 @@ const Dashboard = () => {
                           {report.date}
                         </p>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <div
-                          className={`flex items-center gap-1 px-2 py-1 rounded ${
-                            report.trend === "up"
-                              ? "bg-success/10 text-success"
-                              : "bg-destructive/10 text-destructive"
-                          }`}
-                        >
-                          {report.trend === "up" ? (
-                            <TrendingUp className="w-4 h-4" />
-                          ) : (
-                            <TrendingDown className="w-4 h-4" />
-                          )}
-                          <span className="font-semibold text-sm">
-                            {report.score}/10
-                          </span>
-                        </div>
+                      <div
+                        className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${
+                          report.trend === "up"
+                            ? "bg-primary/10 text-primary"
+                            : "bg-destructive/10 text-destructive"
+                        }`}
+                      >
+                        {report.trend === "up" ? (
+                          <TrendingUp className="w-3.5 h-3.5" />
+                        ) : (
+                          <TrendingDown className="w-3.5 h-3.5" />
+                        )}
+                        {report.score}/10
                       </div>
                     </div>
                     <p className="text-sm text-muted-foreground line-clamp-2">
@@ -205,28 +202,28 @@ const Dashboard = () => {
             </div>
           </motion.div>
 
-          {/* Watchlist */}
+          {/* Quick Access */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.3 }}
+            transition={{ duration: 0.4, delay: 0.3 }}
           >
-            <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-              <FileText className="w-5 h-5 text-primary" />
+            <h2 className="text-base font-bold text-foreground mb-4 flex items-center gap-2">
+              <FileText className="w-4 h-4 text-primary" />
               Quick Access
             </h2>
 
-            <div className="rounded-xl bg-card border border-border overflow-hidden">
+            <div className="rounded-2xl bg-white border border-border overflow-hidden shadow-sm">
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-border">
-                    <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider py-3 px-4">
+                    <th className="text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
                       Stock
                     </th>
-                    <th className="text-right text-xs font-medium text-muted-foreground uppercase tracking-wider py-3 px-4">
+                    <th className="text-right text-[11px] font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
                       Price
                     </th>
-                    <th className="text-right text-xs font-medium text-muted-foreground uppercase tracking-wider py-3 px-4">
+                    <th className="text-right text-[11px] font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
                       Change
                     </th>
                   </tr>
@@ -235,11 +232,11 @@ const Dashboard = () => {
                   {watchlist.map((stock) => (
                     <tr
                       key={stock.ticker}
-                      className="border-b border-border/50 last:border-0 hover:bg-secondary/50 transition-colors cursor-pointer"
+                      className="border-b border-border/50 last:border-0 hover:bg-accent/30 transition-colors cursor-pointer"
                     >
                       <td className="py-3 px-4">
                         <div>
-                          <p className="font-medium text-foreground text-sm">
+                          <p className="font-semibold text-foreground text-sm">
                             {stock.ticker}
                           </p>
                           <p className="text-xs text-muted-foreground">
@@ -247,12 +244,12 @@ const Dashboard = () => {
                           </p>
                         </div>
                       </td>
-                      <td className="py-3 px-4 text-right text-sm text-foreground">
+                      <td className="py-3 px-4 text-right text-sm font-medium text-foreground">
                         ${stock.price.toFixed(2)}
                       </td>
                       <td
-                        className={`py-3 px-4 text-right text-sm font-medium ${
-                          stock.change >= 0 ? "text-success" : "text-destructive"
+                        className={`py-3 px-4 text-right text-sm font-semibold ${
+                          stock.change >= 0 ? "text-primary" : "text-destructive"
                         }`}
                       >
                         {stock.change >= 0 ? "+" : ""}

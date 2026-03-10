@@ -1,5 +1,5 @@
 """
-FundaVision Backend API
+FundaKaMental Backend API
 A FastAPI application for fundamental analysis of stocks
 """
 

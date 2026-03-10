@@ -1,4 +1,4 @@
--- Initial Database Schema for FundaVision
+-- Initial Database Schema for FundaKaMental
 -- This creates the core tables needed for the application
 
 -- Enable UUID extension
