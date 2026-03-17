@@ -18,6 +18,7 @@ import Portfolio from "./pages/Portfolio";
 import Watchlist from "./pages/Watchlist";
 import History from "./pages/History";
 import Settings from "./pages/Settings";
+import Pricing from "./pages/Pricing";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -42,19 +43,11 @@ const AppContent = () => {
       <Route path="/" element={<LandingPage />} />
       <Route
         path="/login"
-        element={
-          <ProtectedRoute requireAuth={false}>
-            <Login />
-          </ProtectedRoute>
-        }
+        element={<Login />}
       />
       <Route
         path="/register"
-        element={
-          <ProtectedRoute requireAuth={false}>
-            <Register />
-          </ProtectedRoute>
-        }
+        element={<Register />}
       />
 
       {/* Protected routes */}
@@ -119,6 +112,14 @@ const AppContent = () => {
         element={
           <ProtectedRoute>
             <Settings />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/pricing"
+        element={
+          <ProtectedRoute>
+            <Pricing />
           </ProtectedRoute>
         }
       />

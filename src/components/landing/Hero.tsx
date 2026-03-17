@@ -1,155 +1,103 @@
-import { Link } from "react-router-dom";
-import { motion } from "framer-motion";
-import { Button } from "@/components/ui/button";
-import { ArrowRight, BarChart3, FileSpreadsheet, LayoutGrid, CheckCircle, Shield, Users } from "lucide-react";
-import { GrowthChartIllustration } from "@/components/brand/Illustrations";
+﻿import { useState, useRef, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { Search } from "lucide-react";
+import CompanySearchResults from "@/components/CompanySearchResults";
+import Logo from "@/components/brand/Logo";
 
 const Hero = () => {
+  const [query, setQuery] = useState("");
+  const [isFocused, setIsFocused] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
+
+  const handleAnalyze = (company: any) => {
+    // Navigate to a mock analysis report for now
+    navigate(`/dashboard/report/1`);
+  };
+
+  // Close search results when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+        setIsFocused(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const pills = [
+    "Apple", "Microsoft", "NVIDIA",
+    "Alphabet", "Amazon", "Tesla"
+  ];
+
   return (
-    <section className="relative min-h-screen flex items-center overflow-hidden pt-20 bg-gradient-hero">
-      {/* Subtle background circles like Xtin Capital */}
-      <div className="absolute top-1/2 right-[10%] -translate-y-1/3 w-[500px] h-[500px] rounded-full bg-primary/5 blur-xl" />
-      <div className="absolute top-1/2 right-[15%] -translate-y-1/4 w-[350px] h-[350px] rounded-full bg-primary/8 blur-sm" />
+    <section className="min-h-screen flex items-center justify-center bg-[#F2F6F9] pt-20 px-4">
+      <div className="w-full max-w-[700px] flex flex-col items-center">
+        
+        {/* App Logo */}
+        <div className="flex items-center justify-center mb-6">
+          <Logo size="xl" />
+        </div>
 
-      {/* Content */}
-      <div className="container relative z-10 px-6 py-20 md:py-28">
-        <div className="grid lg:grid-cols-2 gap-16 items-center">
-          {/* Left — Text Content */}
-          <div>
-            {/* Badge — like Xtin's "Building for Everyone" */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-accent border border-primary/10 mb-8"
-            >
-              <span className="w-2 h-2 rounded-full bg-primary" />
-              <span className="text-sm font-medium text-primary">
-                AI-Powered Analysis
-              </span>
-            </motion.div>
+        {/* Subtitle */}
+        <p className="text-[17px] text-[#4a4a4a] mb-10 text-center">
+          Institutional-Grade Fundamental Analysis for Everyone.
+        </p>
 
-            {/* Headline — clean, bold, Xtin style */}
-            <motion.h1
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.1 }}
-              className="text-4xl md:text-5xl lg:text-6xl font-bold text-foreground mb-6 leading-[1.1] text-balance"
-            >
-              Institutional-Grade{" "}
-              <span className="text-primary">Fundamental Analysis</span>{" "}
-              for Everyone
-            </motion.h1>
-
-            {/* Subheadline */}
-            <motion.p
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.2 }}
-              className="text-lg text-muted-foreground mb-10 max-w-lg leading-relaxed"
-            >
-              Simple, powerful financial tools designed for everyone. 
-              Where technology meets simplicity to grow your wealth.
-            </motion.p>
-
-            {/* CTAs — Green button + outline, like Xtin */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.3 }}
-              className="flex flex-col sm:flex-row items-start gap-4 mb-12"
-            >
-              <Link to="/register">
-                <Button size="lg" className="bg-primary hover:bg-primary/90 text-white text-base px-8 h-13 rounded-full font-medium gap-2 shadow-md">
-                  Explore Tools
-                  <ArrowRight className="w-4 h-4" />
-                </Button>
-              </Link>
-              <Button variant="outline" size="lg" className="text-base px-8 h-13 rounded-full gap-2 border-border font-medium">
-                Join Community
-              </Button>
-            </motion.div>
-
-            {/* Trust badges — like Xtin's "Free to Use · 100% Secure · 50K+ Users" */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.4 }}
-              className="flex flex-wrap items-center gap-6"
-            >
-              {[
-                { icon: CheckCircle, text: "Free to Use", color: "text-primary" },
-                { icon: Shield, text: "100% Secure", color: "text-primary" },
-                { icon: Users, text: "50K+ Users" },
-              ].map((item, index) => (
-                <div key={index} className="flex items-center gap-2">
-                  <item.icon className={`w-4 h-4 ${item.color || 'text-muted-foreground'}`} />
-                  <span className="text-sm text-muted-foreground">{item.text}</span>
-                </div>
-              ))}
-            </motion.div>
+        {/* Search Bar Container */}
+        <div className="w-full relative mb-8" ref={searchRef}>
+          <div className={`flex items-center w-full bg-white rounded-md border ${isFocused ? "border-primary shadow-md ring-1 ring-primary/20" : "border-gray-200"} transition-all duration-200`}>
+            <Search className="w-5 h-5 text-gray-400 ml-4 flex-shrink-0" />
+            <input
+              type="text"
+              placeholder="Search for a company (e.g. Apple, MSFT)"
+              className="w-full h-14 bg-transparent outline-none px-3 text-base text-gray-800 placeholder:text-gray-400"
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setIsFocused(true);
+              }}
+              onFocus={() => setIsFocused(true)}
+            />
           </div>
 
-          {/* Right — Visual Dashboard Preview (floating cards like Xtin) */}
-          <motion.div
-            initial={{ opacity: 0, x: 40 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.7, delay: 0.3 }}
-            className="hidden lg:block relative"
-          >
-            {/* Central chart illustration */}
-            <div className="relative w-[400px] h-[400px] mx-auto">
-              <div className="absolute inset-8 rounded-3xl bg-primary/5 border border-primary/10" />
-              <div className="absolute inset-12 flex items-center justify-center">
-                <GrowthChartIllustration size={320} />
+          {/* Search Results Dropdown */}
+          {isFocused && query.length > 0 && (
+            <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-md shadow-lg border border-border z-50 max-h-[400px] overflow-y-auto">
+              <div className="p-2">
+                <CompanySearchResults
+                  query={query}
+                  onAnalyze={handleAnalyze}
+                />
               </div>
-
-              {/* Floating cards around the circle */}
-              <motion.div
-                animate={{ y: [0, -8, 0] }}
-                transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-                className="absolute -top-4 right-8 bg-white rounded-xl shadow-lg border border-border p-3 flex items-center gap-3"
-              >
-                <LayoutGrid className="w-5 h-5 text-muted-foreground" />
-              </motion.div>
-
-              <motion.div
-                animate={{ y: [0, 6, 0] }}
-                transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
-                className="absolute top-4 -right-4 bg-primary text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-lg"
-              >
-                +24.5%
-              </motion.div>
-
-              <motion.div
-                animate={{ y: [0, -6, 0] }}
-                transition={{ duration: 4, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-                className="absolute top-1/3 -left-8 bg-white rounded-xl shadow-lg border border-border p-3"
-              >
-                <FileSpreadsheet className="w-5 h-5 text-primary" />
-              </motion.div>
-
-              <motion.div
-                animate={{ y: [0, 8, 0] }}
-                transition={{ duration: 3.2, repeat: Infinity, ease: "easeInOut", delay: 0.7 }}
-                className="absolute top-1/3 -right-8 bg-white rounded-xl shadow-lg border border-border p-3"
-              >
-                <BarChart3 className="w-5 h-5 text-muted-foreground" />
-              </motion.div>
-
-              <motion.div
-                animate={{ y: [0, -10, 0] }}
-                transition={{ duration: 3.8, repeat: Infinity, ease: "easeInOut", delay: 0.3 }}
-                className="absolute -bottom-4 left-1/2 -translate-x-1/2 bg-white rounded-xl shadow-lg border border-border p-3"
-              >
-                <BarChart3 className="w-5 h-5 text-primary" />
-              </motion.div>
             </div>
-          </motion.div>
+          )}
         </div>
+
+        {/* Or Analyse section */}
+        <div className="w-full flex flex-col items-center">
+          <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-3 max-w-[650px]">
+            <span className="text-[15px] text-[#4a4a4a] mr-2">Or analyse:</span>
+            {pills.map((pill, idx) => (
+              <button
+                key={idx}
+                onClick={() => {
+                  setQuery(pill);
+                  setIsFocused(true);
+                }}
+                className="px-3 py-1.5 bg-transparent border border-[#d1d5db] text-[#6b7280] text-[13px] rounded hover:bg-gray-50 transition-colors"
+              >
+                {pill}
+              </button>
+            ))}
+          </div>
+        </div>
+
       </div>
     </section>
   );
 };
 
 export default Hero;
+

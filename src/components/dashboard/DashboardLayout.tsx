@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   Home,
@@ -18,6 +18,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import Logo, { LogoMark } from "@/components/brand/Logo";
+import { useAuthStore } from "@/store/useAuthStore";
 
 interface SidebarProps {
   children: React.ReactNode;
@@ -36,6 +37,13 @@ const navItems = [
 const DashboardLayout = ({ children }: SidebarProps) => {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { logout } = useAuthStore();
+
+  const handleLogout = async () => {
+    await logout();
+    navigate("/");
+  };
 
   return (
     <div className="min-h-screen bg-secondary/30 flex">
@@ -99,21 +107,23 @@ const DashboardLayout = ({ children }: SidebarProps) => {
             <p className="text-xs text-muted-foreground mb-3">
               3 reports remaining this month
             </p>
-            <Button size="sm" className="w-full bg-primary hover:bg-primary/90 text-white text-xs rounded-full font-medium">
-              Upgrade to Premium
-            </Button>
+            <Link to="/pricing">
+              <Button size="sm" className="w-full bg-primary hover:bg-primary/90 text-white text-xs rounded-full font-medium">
+                Upgrade to Premium
+              </Button>
+            </Link>
           </div>
         )}
 
         {/* Bottom actions */}
         <div className="p-3 border-t border-border space-y-0.5">
-          <Link
-            to="/"
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-muted-foreground hover:bg-accent/50 hover:text-foreground transition-colors"
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-muted-foreground hover:bg-accent/50 hover:text-foreground transition-colors"
           >
             <LogOut className="w-[18px] h-[18px] flex-shrink-0" />
             {!collapsed && <span className="text-sm font-medium">Log Out</span>}
-          </Link>
+          </button>
         </div>
 
         {/* Collapse Button */}

@@ -1,7 +1,8 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useState, useRef, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
+import CompanySearchResults from "@/components/CompanySearchResults";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -55,6 +56,25 @@ const watchlist = [
 
 const Dashboard = () => {
   const [searchQuery, setSearchQuery] = useState("");
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
+
+  // Close search results when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+        setIsSearchFocused(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const handleAnalyze = (company: any) => {
+    navigate(`/dashboard/report/1`); // Using the mock report ID 1 for now
+    setIsSearchFocused(false);
+  };
 
   return (
     <DashboardLayout>
@@ -87,20 +107,40 @@ const Dashboard = () => {
               <Search className="w-4 h-4 text-primary" />
               Search Company
             </h2>
-            <div className="relative">
+            <div className="relative" ref={searchRef}>
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 type="text"
                 placeholder="Search by company name or ticker..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 h-11 bg-secondary/50 border-border rounded-xl"
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setIsSearchFocused(true);
+                }}
+                onFocus={() => setIsSearchFocused(true)}
+                className="pl-10 h-11 bg-secondary/50 border-border rounded-xl focus-visible:ring-primary/20"
               />
+              
+              {/* Search Results Dropdown */}
+              {isSearchFocused && searchQuery.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-md shadow-lg border border-border z-50 max-h-[400px] overflow-y-auto">
+                  <div className="p-2">
+                    <CompanySearchResults
+                      query={searchQuery}
+                      onAnalyze={handleAnalyze}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
             <div className="flex flex-wrap gap-2 mt-4">
               {["AAPL", "MSFT", "GOOGL", "AMZN"].map((ticker) => (
                 <button
                   key={ticker}
+                  onClick={() => {
+                    setSearchQuery(ticker);
+                    setIsSearchFocused(true);
+                  }}
                   className="px-3 py-1.5 rounded-full bg-accent text-xs font-medium text-primary hover:bg-primary/10 transition-colors"
                 >
                   {ticker}
