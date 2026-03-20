@@ -8,6 +8,7 @@ const plans = [
     name: "Free",
     description: "Perfect for getting started",
     price: "$0",
+    inrPrice: "₹0",
     period: "forever",
     features: [
       "5 reports per month",
@@ -23,6 +24,7 @@ const plans = [
     name: "Premium",
     description: "For serious investors",
     price: "$29",
+    inrPrice: "₹2,499",
     period: "/month",
     features: [
       "Unlimited reports",
@@ -41,6 +43,7 @@ const plans = [
     name: "Enterprise",
     description: "For teams & institutions",
     price: "Custom",
+    inrPrice: "Custom",
     period: "",
     features: [
       "Everything in Premium",
@@ -119,6 +122,10 @@ const Pricing = () => {
                   </span>
                   <span className="text-muted-foreground">{plan.period}</span>
                 </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  INR: {plan.inrPrice}
+                  {plan.period ? plan.period : ""}
+                </p>
               </div>
 
               {/* Features */}
