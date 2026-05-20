@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { authApi } from '@/lib/api';
+import { supabase } from "@/lib/supabase";
+import Dashboard from '@/pages/Dashboard';
 
 interface User {
   id: string;
@@ -17,6 +19,7 @@ interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  loginWithGoogle: () => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   updateUser: (updates: Partial<User>) => Promise<void>;
@@ -32,7 +35,37 @@ export const useAuthStore = create<AuthState>()(
 
       initializeAuth: async () => {
         set({ isLoading: true });
+
         try {
+          const {
+            data: { session },
+          } = await supabase.auth.getSession();
+
+          if (session?.user) {
+            const user = session.user;
+
+            set({
+              user: {
+                id: user.id,
+                name:
+                  user.user_metadata?.full_name ||
+                  user.user_metadata?.name ||
+                  "User",
+                email: user.email || "",
+                avatar:
+                  user.user_metadata?.avatar_url ||
+                  undefined,
+                plan: "free",
+                reportsUsed: 0,
+                reportsLimit: 5,
+              },
+              isAuthenticated: true,
+              isLoading: false,
+            });
+
+            return;
+          }
+          
           const token = localStorage.getItem('auth_token');
           
           if (token) {
@@ -94,6 +127,32 @@ export const useAuthStore = create<AuthState>()(
           throw new Error(error.message || 'Login failed');
         } finally {
           set({ isLoading: false });
+        }
+      },
+
+      loginWithGoogle: async () => {
+        try {
+          const { error } =
+            await supabase.auth.signInWithOAuth({
+              provider: "google",
+              options: {
+                redirectTo: window.location.origin + '/dashboard',
+              },
+            });
+
+          if (error) {
+            throw error;
+          }
+        } catch (error: any) {
+          console.error(
+            "Google login error:",
+            error
+          );
+
+          throw new Error(
+            error.message ||
+              "Google login failed"
+          );
         }
       },
 
