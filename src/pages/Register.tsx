@@ -134,6 +134,45 @@ const Register = () => {
             >
               {isLoading ? "Creating account..." : "Sign Up"}
             </Button>
+
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">
+                  Or continue with Social
+                </span>
+              </div>
+            </div>
+
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full h-12 text-base font-medium flex items-center gap-3 border border-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all"
+              onClick={async () => {
+                try {
+                  await loginWithGoogle();
+                } catch (error: any) {
+                  toast({
+                    title: "Error",
+                    description:
+                      error.message ||
+                      "Google authentication failed",
+                    variant: "destructive",
+                  });
+                }
+              }}
+            >
+              <img
+                src="https://www.svgrepo.com/show/475656/google-color.svg"
+                alt="Google"
+                className="w-5 h-5"
+              />
+
+              Continue with Google
+            </Button>
           </form>
 
           {/* Login Link */}
