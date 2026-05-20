@@ -25,7 +25,7 @@ from app.core.config import settings
 router = APIRouter()
 
 
-@router.post("/register", response_model=Token, status_code=status.HTTP_201_CREATED)
+@router.post("/register", status_code=status.HTTP_201_CREATED)
 async def register(user_data: UserRegister, db: Client = Depends(get_db)):
     """
     Register a new user using Supabase Auth
@@ -51,11 +51,12 @@ async def register(user_data: UserRegister, db: Client = Depends(get_db)):
         user = auth_response.user
         session = auth_response.session
         
+        # If email verification is enabled, session may be None
         if not session:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to create session"
-            )
+            return {
+                "message": "Registration successful. Please verify your email before logging in.",
+                "email_verification_required": True,
+            }
         
         # Get user profile (created automatically by trigger)
         profile_result = db.table('users').select('*').eq('id', user.id).execute()
@@ -73,20 +74,26 @@ async def register(user_data: UserRegister, db: Client = Depends(get_db)):
             db.table('users').insert(profile).execute()
         else:
             profile = profile_result.data[0]
-        
-        return Token(
-            access_token=session.access_token,
-            token_type="bearer",
-            expires_in=session.expires_in or settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-            user={
-                "id": user.id,
-                "name": profile.get("name", user_data.name),
-                "email": user.email,
-                "plan": profile.get("plan", "free"),
-                "reports_used": profile.get("reports_used", 0),
-                "reports_limit": profile.get("reports_limit", 5),
+
+        if session:
+            return Token(
+                access_token=session.access_token,
+                token_type="bearer",
+                expires_in=session.expires_in or settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+                user={
+                    "id": user.id,
+                    "name": profile.get("name", user_data.name),
+                    "email": user.email,
+                    "plan": profile.get("plan", "free"),
+                    "reports_used": profile.get("reports_used", 0),
+                    "reports_limit": profile.get("reports_limit", 5),
+                }
+            )
+
+            return {
+                "message": "Registration successful. Please verify your email before logging in.",
+                "email_verification_required": True,
             }
-        )
         
     except Exception as e:
         import traceback
