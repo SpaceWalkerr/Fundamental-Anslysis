@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Mail, Lock, Eye, EyeOff } from "lucide-react";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/lib/supabase";
 import Header from "@/components/landing/Header";
 
 const Login = () => {
@@ -83,7 +84,7 @@ const Login = () => {
               <div className="flex items-center justify-between">
                 <Label htmlFor="password">Password</Label>
                 <Link
-                  to="#"
+                  to="/forgot-password"
                   className="text-sm font-medium text-primary hover:underline"
                 >
                   Forgot password?
