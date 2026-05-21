@@ -51,7 +51,7 @@ export const authApi = {
   register: async (name: string, email: string, password: string) => {
     const data = await fetchWithAuth('/api/auth/register', {
       method: 'POST',
-      body: JSON.stringify({ name, email, password }),
+      body: JSON.stringify({ name, email, password, confirm_password: password }),
     });
 
     // Store token

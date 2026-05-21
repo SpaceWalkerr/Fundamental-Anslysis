@@ -10,6 +10,8 @@ import { useEffect } from "react";
 import LandingPage from "./pages/LandingPage";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from './pages/ResetPassword';
 import Dashboard from "./pages/Dashboard";
 import NewAnalysis from "./pages/NewAnalysis";
 import AnalysisReport from "./pages/AnalysisReport";
@@ -48,6 +50,14 @@ const AppContent = () => {
       <Route
         path="/register"
         element={<Register />}
+      />
+      <Route
+        path="/forgot-password"
+        element={<ForgotPassword />}
+      />
+      <Route
+        path="/reset-password"
+        element={<ResetPassword />}
       />
 
       {/* Protected routes */}
