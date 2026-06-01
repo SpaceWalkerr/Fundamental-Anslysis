@@ -11,7 +11,7 @@ import Header from "@/components/landing/Header";
 
 const Register = () => {
   const navigate = useNavigate();
-  const { register, isLoading } = useAuthStore();
+  const { register, loginWithGoogle, isLoading } = useAuthStore();
   const { toast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
@@ -189,4 +189,3 @@ const Register = () => {
 };
 
 export default Register;
-

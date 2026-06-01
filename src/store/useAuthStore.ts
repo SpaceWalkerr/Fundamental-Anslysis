@@ -160,15 +160,22 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true });
 
         try {
-          await authApi.register(name, email, password);
+          const { user } = await authApi.register(name, email, password);
 
-          // Registration now requires email verification.
-          // User should login only after verifying email.
-
-          set({
-            user: null,
-            isAuthenticated: false,
-          });
+          if (user) {
+            set({
+              user: {
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                avatar: user.avatar_url || undefined,
+                plan: user.plan as 'free' | 'premium' | 'enterprise',
+                reportsUsed: user.reports_used,
+                reportsLimit: user.reports_limit,
+              },
+              isAuthenticated: true,
+            });
+          }
         } catch (error: any) {
           console.error('Registration error:', error);
 

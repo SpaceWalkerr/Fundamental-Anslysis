@@ -4,7 +4,7 @@ import Footer from "@/components/landing/Footer";
 
 const LandingPage = () => {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="app-shell min-h-screen bg-[var(--bg-primary)]">
       <Header />
       <Hero />
       <Footer />

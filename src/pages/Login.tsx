@@ -11,7 +11,7 @@ import Header from "@/components/landing/Header";
 
 const Login = () => {
   const navigate = useNavigate();
-  const { login, isLoading } = useAuthStore();
+  const { login, loginWithGoogle, isLoading } = useAuthStore();
   const { toast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
@@ -178,4 +178,3 @@ const Login = () => {
 };
 
 export default Login;
-

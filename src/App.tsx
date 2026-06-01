@@ -22,6 +22,7 @@ import History from "./pages/History";
 import Settings from "./pages/Settings";
 import Pricing from "./pages/Pricing";
 import NotFound from "./pages/NotFound";
+import { applyTheme } from "./components/ThemeToggle";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -36,6 +37,8 @@ const AppContent = () => {
   const { initializeAuth } = useAuthStore();
 
   useEffect(() => {
+    const savedTheme = window.localStorage.getItem("fkm-theme") === "light" ? "light" : "dark";
+    applyTheme(savedTheme);
     initializeAuth();
   }, [initializeAuth]);
 

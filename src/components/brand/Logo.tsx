@@ -22,8 +22,8 @@ export const LogoMark = ({
   size?: number;
   variant?: "default" | "white";
 }) => {
-  const primary = variant === "white" ? "#ffffff" : "hsl(152, 69%, 31%)";
-  const light = variant === "white" ? "rgba(255,255,255,0.5)" : "hsl(152, 40%, 72%)";
+  const primary = variant === "white" ? "var(--accent-token)" : "var(--accent-token)";
+  const light = "var(--button-primary-text)";
 
   return (
     <svg
@@ -76,8 +76,8 @@ const Logo = ({
   variant = "default",
 }: LogoProps) => {
   const s = sizeMap[size];
-  const textColor = variant === "white" ? "text-white" : "text-foreground";
-  const accentColor = variant === "white" ? "text-white/80" : "text-primary";
+  const textColor = variant === "white" ? "text-[var(--text-primary-token)]" : "text-foreground";
+  const accentColor = variant === "white" ? "text-[var(--accent-token)]" : "text-primary";
 
   return (
     <span className={cn("flex items-center", s.gap, className)}>

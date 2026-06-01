@@ -32,27 +32,27 @@ const Hero = () => {
   ];
 
   return (
-    <section className="min-h-screen flex items-center justify-center bg-[#F2F6F9] pt-20 px-4">
-      <div className="w-full max-w-[700px] flex flex-col items-center">
+    <section className="flex min-h-screen items-center justify-center bg-[var(--bg-primary)] px-4 pt-28 text-[var(--text-primary-token)]">
+      <div className="w-full max-w-[860px] flex flex-col items-center">
         
         {/* App Logo */}
         <div className="flex items-center justify-center mb-6">
-          <Logo size="xl" />
+          <Logo size="xl" variant="white" />
         </div>
 
         {/* Subtitle */}
-        <p className="text-[17px] text-[#4a4a4a] mb-10 text-center">
+        <p className="mb-10 text-center text-[15px] uppercase tracking-[0.12em] text-[var(--text-muted-token)]">
           Institutional-Grade Fundamental Analysis for Everyone.
         </p>
 
         {/* Search Bar Container */}
         <div className="w-full relative mb-8" ref={searchRef}>
-          <div className={`flex items-center w-full bg-white rounded-md border ${isFocused ? "border-primary shadow-md ring-1 ring-primary/20" : "border-gray-200"} transition-all duration-200`}>
-            <Search className="w-5 h-5 text-gray-400 ml-4 flex-shrink-0" />
+          <div className={`flex w-full items-center rounded-lg border bg-[var(--bg-surface)] ${isFocused ? "border-[var(--accent-token)] shadow-[var(--shadow-glow)]" : "border-[var(--border-token)]"}`}>
+            <Search className="ml-4 h-5 w-5 flex-shrink-0 text-[var(--accent-token)]" />
             <input
               type="text"
               placeholder="Search for a company (e.g. Apple, MSFT)"
-              className="w-full h-14 bg-transparent outline-none px-3 text-base text-gray-800 placeholder:text-gray-400"
+              className="h-16 w-full bg-transparent px-3 font-market text-base text-[var(--text-primary-token)] outline-none placeholder:text-[var(--text-muted-token)]"
               value={query}
               onChange={(e) => {
                 setQuery(e.target.value);
@@ -64,7 +64,7 @@ const Hero = () => {
 
           {/* Search Results Dropdown */}
           {isFocused && query.length > 0 && (
-            <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-md shadow-lg border border-border z-50 max-h-[400px] overflow-y-auto">
+            <div className="app-shell absolute left-0 right-0 top-full z-50 mt-2 max-h-[430px] overflow-y-auto rounded-lg border border-[var(--border-token)] bg-[var(--bg-surface)] shadow-2xl">
               <div className="p-2">
                 <CompanySearchResults
                   query={query}
@@ -78,7 +78,7 @@ const Hero = () => {
         {/* Or Analyse section */}
         <div className="w-full flex flex-col items-center">
           <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-3 max-w-[650px]">
-            <span className="text-[15px] text-[#4a4a4a] mr-2">Or analyse:</span>
+            <span className="mr-2 text-[13px] uppercase tracking-[0.12em] text-[var(--text-muted-token)]">Or analyse:</span>
             {pills.map((pill, idx) => (
               <button
                 key={idx}
@@ -86,7 +86,7 @@ const Hero = () => {
                   setQuery(pill);
                   setIsFocused(true);
                 }}
-                className="px-3 py-1.5 bg-transparent border border-[#d1d5db] text-[#6b7280] text-[13px] rounded hover:bg-gray-50 transition-colors"
+                className="rounded border border-[var(--border-token)] bg-transparent px-3 py-1.5 text-[12px] text-[var(--text-muted-token)] hover:border-[var(--accent-token)] hover:text-[var(--text-primary-token)]"
               >
                 {pill}
               </button>
@@ -100,4 +100,3 @@ const Hero = () => {
 };
 
 export default Hero;
-

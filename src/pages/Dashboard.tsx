@@ -1,306 +1,274 @@
-import { useState, useRef, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import CompanySearchResults from "@/components/CompanySearchResults";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useAuthStore } from "@/store/useAuthStore";
 import {
+  ArrowRight,
+  Clock,
+  FileText,
+  Plus,
   Search,
   Upload,
-  FileText,
-  TrendingUp,
-  TrendingDown,
-  Clock,
-  ArrowRight,
-  Plus,
-  HelpCircle,
 } from "lucide-react";
 
 const recentReports = [
   {
     id: 1,
-    company: "Apple Inc.",
-    ticker: "AAPL",
-    date: "Jan 28, 2026",
-    score: 8.5,
-    summary: "Strong profitability with robust cash flow generation. Premium valuation warranted by ecosystem strength.",
-    trend: "up",
+    company: "Reliance Industries Ltd.",
+    ticker: "RELIANCE",
+    date: "29 May 2026",
+    score: 8.4,
+    summary: "Diversified cash flows across energy, retail and telecom with strong market leadership.",
   },
   {
     id: 2,
-    company: "Microsoft Corporation",
-    ticker: "MSFT",
-    date: "Jan 25, 2026",
-    score: 9.1,
-    summary: "Exceptional cloud growth with expanding margins. Well-positioned for AI monetization.",
-    trend: "up",
+    company: "Tata Consultancy Services Ltd.",
+    ticker: "TCS",
+    date: "28 May 2026",
+    score: 7.8,
+    summary: "High quality IT services franchise with resilient margins and strong capital returns.",
   },
   {
     id: 3,
-    company: "Tesla Inc.",
-    ticker: "TSLA",
-    date: "Jan 20, 2026",
-    score: 6.2,
-    summary: "Revenue growth slowing amid competition. Margin compression concerns but strong balance sheet.",
-    trend: "down",
+    company: "HDFC Bank Ltd.",
+    ticker: "HDFCBANK",
+    date: "27 May 2026",
+    score: 6.9,
+    summary: "Scale advantage remains intact while deposit growth and merger integration need monitoring.",
+  },
+  {
+    id: 4,
+    company: "Titan Company Ltd.",
+    ticker: "TITAN",
+    date: "26 May 2026",
+    score: 5.8,
+    summary: "Premium consumer franchise, but valuation leaves little room for execution misses.",
   },
 ];
 
 const watchlist = [
-  { ticker: "AAPL", name: "Apple", price: 225.50, change: 2.35 },
-  { ticker: "MSFT", name: "Microsoft", price: 415.25, change: 1.82 },
-  { ticker: "GOOGL", name: "Alphabet", price: 178.90, change: -0.54 },
-  { ticker: "NVDA", name: "NVIDIA", price: 880.25, change: 5.12 },
+  { ticker: "RELIANCE", name: "Reliance", price: 2918.4, change: 1.02 },
+  { ticker: "TCS", name: "TCS", price: 3842.2, change: -0.47 },
+  { ticker: "INFY", name: "Infosys", price: 1488.6, change: 0.91 },
+  { ticker: "HDFCBANK", name: "HDFC Bank", price: 1537.8, change: -0.4 },
+  { ticker: "SBIN", name: "SBI", price: 817.4, change: 0.89 },
 ];
+
+const scoreClass = (score: number) => {
+  if (score >= 8) return "bg-profit-soft text-profit border-[color-mix(in_srgb,var(--profit-token)_30%,transparent)]";
+  if (score >= 6) return "bg-warning-soft text-warning-token border-[color-mix(in_srgb,var(--warning-token)_30%,transparent)]";
+  return "bg-loss-soft text-loss border-[color-mix(in_srgb,var(--loss-token)_30%,transparent)]";
+};
+
+const formatINR = (n: number) =>
+  `₹${n.toLocaleString("en-IN", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
 
 const Dashboard = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const { user } = useAuthStore();
 
-  // Close search results when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
         setIsSearchFocused(false);
       }
     };
+
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleAnalyze = (company: any) => {
-    navigate(`/dashboard/report/1`); // Using the mock report ID 1 for now
+  const handleAnalyze = () => {
+    navigate("/dashboard/report/1");
     setIsSearchFocused(false);
   };
 
   return (
     <DashboardLayout>
-      <div className="p-6 md:p-8 max-w-7xl mx-auto">
-        {/* Header */}
+      <div className="mx-auto max-w-7xl p-6 md:p-8">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-          className="mb-8"
+          transition={{ duration: 0.3 }}
+          className="mb-7"
         >
-          <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-1">
-            Welcome back, John
+          <h1 className="mb-2 text-2xl font-semibold text-[var(--text-primary-token)]">
+            Welcome back, {user?.name?.split(" ")[0] || "Investor"}
           </h1>
-          <p className="text-muted-foreground">
-            Ready to analyze some financials?
+          <p className="text-sm text-[var(--text-muted-token)]">
+            Precision-grade fundamental analysis for Indian equities.
           </p>
         </motion.div>
 
-        {/* Search & Upload — clean white cards */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.1 }}
-          className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8"
+          transition={{ duration: 0.3, delay: 0.05 }}
+          className="mb-8 grid grid-cols-1 gap-5 lg:grid-cols-[7fr_5fr]"
         >
-          {/* Search Company */}
-          <div className="p-6 rounded-2xl bg-white border border-border shadow-sm">
-            <h2 className="text-base font-bold text-foreground mb-4 flex items-center gap-2">
-              <Search className="w-4 h-4 text-primary" />
+          <section className="card-institutional">
+            <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.12em] text-[var(--text-primary-token)]">
+              <Search className="h-4 w-4 text-[var(--accent-token)]" />
               Search Company
             </h2>
+
             <div className="relative" ref={searchRef}>
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted-token)]" />
               <Input
                 type="text"
-                placeholder="Search by company name or ticker..."
+                placeholder="Search NSE/BSE company or symbol..."
                 value={searchQuery}
                 onChange={(e) => {
                   setSearchQuery(e.target.value);
                   setIsSearchFocused(true);
                 }}
                 onFocus={() => setIsSearchFocused(true)}
-                className="pl-10 h-11 bg-secondary/50 border-border rounded-xl focus-visible:ring-primary/20"
+                className="h-12 rounded-lg border-[var(--border-token)] bg-[var(--bg-primary)] pl-10 font-market text-[var(--text-primary-token)] placeholder:text-[var(--text-muted-token)] focus-visible:ring-[var(--accent-token)]"
               />
-              
-              {/* Search Results Dropdown */}
+
               {isSearchFocused && searchQuery.length > 0 && (
-                <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-md shadow-lg border border-border z-50 max-h-[400px] overflow-y-auto">
+                <div className="app-shell absolute left-0 right-0 top-full z-50 mt-2 max-h-[430px] overflow-y-auto rounded-lg border border-[var(--border-token)] bg-[var(--bg-surface)] shadow-2xl">
                   <div className="p-2">
-                    <CompanySearchResults
-                      query={searchQuery}
-                      onAnalyze={handleAnalyze}
-                    />
+                    <CompanySearchResults query={searchQuery} onAnalyze={handleAnalyze} />
                   </div>
                 </div>
               )}
             </div>
-            <div className="flex flex-wrap gap-2 mt-4">
-              {["AAPL", "MSFT", "GOOGL", "AMZN"].map((ticker) => (
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              {["RELIANCE", "TCS", "INFY", "HDFCBANK", "SBIN"].map((ticker) => (
                 <button
                   key={ticker}
                   onClick={() => {
                     setSearchQuery(ticker);
                     setIsSearchFocused(true);
                   }}
-                  className="px-3 py-1.5 rounded-full bg-accent text-xs font-medium text-primary hover:bg-primary/10 transition-colors"
+                  className="rounded-full border border-[var(--border-token)] px-3 py-1.5 font-market text-xs text-[var(--text-muted-token)] hover:border-[var(--accent-token)] hover:text-[var(--text-primary-token)]"
                 >
                   {ticker}
                 </button>
               ))}
             </div>
-          </div>
+          </section>
 
-          {/* Upload */}
-          <div className="p-6 rounded-2xl bg-white border border-dashed border-border shadow-sm">
-            <h2 className="text-base font-bold text-foreground mb-4 flex items-center gap-2">
-              <Upload className="w-4 h-4 text-primary" />
+          <section className="card-institutional">
+            <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.12em] text-[var(--text-primary-token)]">
+              <Upload className="h-4 w-4 text-[var(--accent-token)]" />
               Upload Financial Statements
             </h2>
-            <div className="border-2 border-dashed border-border rounded-xl p-8 text-center hover:border-primary/40 transition-colors cursor-pointer bg-accent/30">
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
-                <Plus className="w-5 h-5 text-primary" />
+
+            <div className="rounded-lg border border-dashed border-[var(--border-token)] bg-[var(--bg-primary)] p-8 text-center hover:border-[var(--accent-token)]">
+              <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--accent-token)_12%,transparent)]">
+                <Plus className="h-5 w-5 text-[var(--accent-token)]" />
               </div>
-              <p className="text-sm text-muted-foreground mb-1">
-                Drag & drop files here or click to browse
+              <p className="mb-1 text-sm text-[var(--text-primary-token)]">
+                Drag and drop files here or click to browse
               </p>
-              <p className="text-xs text-muted-foreground/70">
-                Supports PDF, Excel, CSV (max 25MB)
+              <p className="text-xs text-[var(--text-muted-token)]">
+                PDF, Excel, CSV supported. Max 25MB.
               </p>
             </div>
-          </div>
+          </section>
         </motion.div>
 
-        {/* Main Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Recent Reports */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+          <motion.section
+            initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.2 }}
+            transition={{ duration: 0.3, delay: 0.1 }}
             className="lg:col-span-2"
           >
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-base font-bold text-foreground flex items-center gap-2">
-                <Clock className="w-4 h-4 text-primary" />
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.12em] text-[var(--text-primary-token)]">
+                <Clock className="h-4 w-4 text-[var(--accent-token)]" />
                 Recent Reports
               </h2>
               <Link to="/dashboard/history">
-                <Button variant="ghost" size="sm" className="text-primary hover:text-primary/80 text-sm font-medium gap-1">
+                <Button variant="ghost" size="sm" className="gap-1 text-[var(--accent-token)] hover:bg-[color-mix(in_srgb,var(--accent-token)_10%,transparent)] hover:text-[var(--accent-hover)]">
                   View All
-                  <ArrowRight className="w-3.5 h-3.5" />
+                  <ArrowRight className="h-3.5 w-3.5" />
                 </Button>
               </Link>
             </div>
 
-            <div className="space-y-3">
-              {recentReports.map((report, index) => (
-                <motion.div
-                  key={report.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.3, delay: 0.05 * index }}
-                >
-                  <Link
-                    to={`/dashboard/report/${report.id}`}
-                    className="block p-5 rounded-2xl bg-white border border-border hover:border-primary/30 hover:shadow-md transition-all duration-300"
-                  >
-                    <div className="flex items-start justify-between mb-2">
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-bold text-foreground text-sm">
-                            {report.company}
-                          </h3>
-                          <span className="px-2 py-0.5 rounded-full bg-secondary text-xs text-muted-foreground font-medium">
-                            {report.ticker}
-                          </span>
-                        </div>
-                        <p className="text-xs text-muted-foreground flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          {report.date}
-                        </p>
-                      </div>
-                      <div
-                        className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${
-                          report.trend === "up"
-                            ? "bg-primary/10 text-primary"
-                            : "bg-destructive/10 text-destructive"
-                        }`}
-                      >
-                        {report.trend === "up" ? (
-                          <TrendingUp className="w-3.5 h-3.5" />
-                        ) : (
-                          <TrendingDown className="w-3.5 h-3.5" />
-                        )}
-                        {report.score}/10
-                      </div>
-                    </div>
-                    <p className="text-sm text-muted-foreground line-clamp-2">
-                      {report.summary}
-                    </p>
-                  </Link>
-                </motion.div>
-              ))}
+            <div className="overflow-hidden rounded-xl border border-[var(--border-token)] bg-[var(--bg-surface)]">
+              <table className="w-full">
+                <thead className="bg-[var(--bg-card)]">
+                  <tr>
+                    {["Company", "Ticker", "Score", "Date", "Summary"].map((heading) => (
+                      <th key={heading} className="border-b border-[var(--border-token)] px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted-token)]">
+                        {heading}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {recentReports.map((report) => (
+                    <tr key={report.id} className="border-b border-[var(--border-token)] last:border-0 hover:bg-[var(--bg-card)]">
+                      <td className="px-4 py-3 text-sm font-medium text-[var(--text-primary-token)]">{report.company}</td>
+                      <td className="px-4 py-3 font-market text-sm text-[var(--text-muted-token)]">{report.ticker}</td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex rounded-full border px-2 py-1 font-market text-xs font-semibold ${scoreClass(report.score)}`}>
+                          {report.score.toFixed(1)}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 font-market text-xs text-[var(--text-muted-token)]">{report.date}</td>
+                      <td className="px-4 py-3 text-sm text-[var(--text-muted-token)]">{report.summary}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          </motion.div>
+          </motion.section>
 
-          {/* Quick Access */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
+          <motion.section
+            initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.3 }}
+            transition={{ duration: 0.3, delay: 0.15 }}
           >
-            <h2 className="text-base font-bold text-foreground mb-4 flex items-center gap-2">
-              <FileText className="w-4 h-4 text-primary" />
+            <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.12em] text-[var(--text-primary-token)]">
+              <FileText className="h-4 w-4 text-[var(--accent-token)]" />
               Quick Access
             </h2>
 
-            <div className="rounded-2xl bg-white border border-border overflow-hidden shadow-sm">
+            <div className="overflow-hidden rounded-xl border border-[var(--border-token)] bg-[var(--bg-surface)]">
               <table className="w-full">
-                <thead>
-                  <tr className="border-b border-border">
-                    <th className="text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
-                      Stock
-                    </th>
-                    <th className="text-right text-[11px] font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
-                      Price
-                    </th>
-                    <th className="text-right text-[11px] font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
-                      Change
-                    </th>
+                <thead className="bg-[var(--bg-card)]">
+                  <tr>
+                    <th className="border-b border-[var(--border-token)] px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted-token)]">Stock</th>
+                    <th className="border-b border-[var(--border-token)] px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted-token)]">Price</th>
+                    <th className="border-b border-[var(--border-token)] px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted-token)]">Chg</th>
                   </tr>
                 </thead>
                 <tbody>
                   {watchlist.map((stock) => (
-                    <tr
-                      key={stock.ticker}
-                      className="border-b border-border/50 last:border-0 hover:bg-accent/30 transition-colors cursor-pointer"
-                    >
-                      <td className="py-3 px-4">
-                        <div>
-                          <p className="font-semibold text-foreground text-sm">
-                            {stock.ticker}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {stock.name}
-                          </p>
-                        </div>
+                    <tr key={stock.ticker} className="border-b border-[var(--border-token)] last:border-0 hover:bg-[var(--bg-card)]">
+                      <td className="px-4 py-3">
+                        <p className="font-market text-sm font-semibold text-[var(--text-primary-token)]">{stock.ticker}</p>
+                        <p className="text-xs text-[var(--text-muted-token)]">{stock.name}</p>
                       </td>
-                      <td className="py-3 px-4 text-right text-sm font-medium text-foreground">
-                        ${stock.price.toFixed(2)}
+                      <td className="px-4 py-3 text-right font-market text-sm text-[var(--text-primary-token)]">
+                        {formatINR(stock.price)}
                       </td>
-                      <td
-                        className={`py-3 px-4 text-right text-sm font-semibold ${
-                          stock.change >= 0 ? "text-primary" : "text-destructive"
-                        }`}
-                      >
-                        {stock.change >= 0 ? "+" : ""}
-                        {stock.change.toFixed(2)}%
+                      <td className={`px-4 py-3 text-right font-market text-sm font-semibold ${stock.change >= 0 ? "text-profit" : "text-loss"}`}>
+                        {stock.change >= 0 ? "+" : ""}{stock.change.toFixed(2)}%
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-          </motion.div>
+          </motion.section>
         </div>
       </div>
     </DashboardLayout>

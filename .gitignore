@@ -25,6 +25,7 @@ env/
 *.egg-info/
 backend/uploads/*
 backend/data/chroma/*
+backend/data/*.json
 !backend/uploads/.gitkeep
 !backend/data/chroma/.gitkeep
 
@@ -50,9 +51,20 @@ backend/.env
 # Build outputs
 build
 coverage
+.coverage
+htmlcov
+.pytest_cache
+.ruff_cache
+.mypy_cache
+.vite
+.vercel
 
 # OS files
 Thumbs.db
 
 # Bun
 .bun
+
+# Local assistant/tooling state
+.agents/
+.codex/
