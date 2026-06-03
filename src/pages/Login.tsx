@@ -11,8 +11,9 @@ import Header from "@/components/landing/Header";
 
 const Login = () => {
   const navigate = useNavigate();
-  const { login, isLoading } = useAuthStore();
+  const { login, loginWithGoogle, skipLogin, isLoading } = useAuthStore();
   const { toast } = useToast();
+  const isTestLoginEnabled = import.meta.env.VITE_ENABLE_TEST_LOGIN === "true";
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
@@ -34,6 +35,24 @@ const Login = () => {
       toast({
         title: "Error",
         description: err.message || "Invalid email or password",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSkipLogin = () => {
+    try {
+      skipLogin();
+      toast({
+        title: "Test mode",
+        description: "Signed in as Test User.",
+      });
+      navigate("/dashboard");
+    } catch (error: unknown) {
+      const err = error as Error;
+      toast({
+        title: "Error",
+        description: err.message || "Test login is not available",
         variant: "destructive",
       });
     }
@@ -124,6 +143,18 @@ const Login = () => {
               {isLoading ? "Signing in..." : "Login"}
             </Button>
 
+            {isTestLoginEnabled && (
+              <Button
+                type="button"
+                variant="secondary"
+                className="w-full h-12 text-base font-medium"
+                onClick={handleSkipLogin}
+                disabled={isLoading}
+              >
+                Skip login for testing
+              </Button>
+            )}
+
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
                 <span className="w-full border-t" />
@@ -143,11 +174,12 @@ const Login = () => {
               onClick={async () => {
                 try {
                   await loginWithGoogle();
-                } catch (error: any) {
+                } catch (error: unknown) {
+                  const err = error as Error;
                   toast({
                     title: "Error",
                     description:
-                      error.message ||
+                      err.message ||
                       "Google authentication failed",
                     variant: "destructive",
                   });
@@ -178,4 +210,3 @@ const Login = () => {
 };
 
 export default Login;
-

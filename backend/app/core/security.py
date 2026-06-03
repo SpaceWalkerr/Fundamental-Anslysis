@@ -80,6 +80,22 @@ async def get_current_user(
     Usage: current_user = Depends(get_current_user)
     """
     token = credentials.credentials
+
+    if (
+        settings.ENABLE_TEST_LOGIN
+        and settings.ENVIRONMENT.lower() != "production"
+        and token == settings.TEST_LOGIN_TOKEN
+    ):
+        return {
+            "id": "00000000-0000-4000-8000-000000000001",
+            "name": "Test User",
+            "email": "test@example.com",
+            "plan": "enterprise",
+            "reports_used": 0,
+            "reports_limit": 999,
+            "created_at": datetime.utcnow(),
+            "updated_at": datetime.utcnow(),
+        }
     
     try:
         # Validate token with Supabase Auth
