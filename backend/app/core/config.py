@@ -85,10 +85,19 @@ class Settings(BaseSettings):
         if isinstance(v, str):
             return [origin.strip() for origin in v.split(",")]
         return v
+
+    @field_validator('DEBUG', mode='before')
+    @classmethod
+    def parse_debug(cls, v):
+        """Treat common deployment mode names as non-debug values."""
+        if isinstance(v, str) and v.lower() in {"release", "production", "prod"}:
+            return False
+        return v
     
     class Config:
         env_file = ".env"
         case_sensitive = True
+        extra = "ignore"
     
     def model_post_init(self, __context):
         """Create directories after model initialization"""

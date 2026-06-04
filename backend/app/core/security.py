@@ -7,10 +7,8 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-from supabase import Client
-
 from app.core.config import settings
-from app.db.database import get_db
+from app.db.database import get_supabase_client
 
 
 # Password hashing
@@ -73,7 +71,6 @@ def decode_token(token: str) -> Dict[str, Any]:
 
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: Client = Depends(get_db)
 ) -> Dict[str, Any]:
     """
     Get current authenticated user from Supabase Auth token
@@ -96,6 +93,8 @@ async def get_current_user(
             "created_at": datetime.utcnow(),
             "updated_at": datetime.utcnow(),
         }
+
+    db = get_supabase_client()
     
     try:
         # Validate token with Supabase Auth

@@ -22,6 +22,7 @@ export default {
         serif: ['"Plus Jakarta Sans"', 'Inter', 'system-ui', 'sans-serif'],
         sans: ['Inter', 'system-ui', 'sans-serif'],
         heading: ['"Plus Jakarta Sans"', 'Inter', 'system-ui', 'sans-serif'],
+        poppins: ['Poppins', 'Inter', 'system-ui', 'sans-serif'],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -96,6 +97,8 @@ export default {
         'md': 'var(--shadow-md)',
         'lg': 'var(--shadow-lg)',
         'glow': 'var(--shadow-glow)',
+        'card': 'var(--shadow-card)',
+        'card-hover': 'var(--shadow-card-hover)',
       },
       backgroundImage: {
         'gradient-primary': 'var(--gradient-primary)',

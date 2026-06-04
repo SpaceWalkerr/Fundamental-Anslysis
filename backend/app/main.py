@@ -21,18 +21,23 @@ async def lifespan(app: FastAPI):
     """
     # Startup
     print("🚀 Starting FundaKaMental API...")
-    await init_db()
-    print("✅ Database initialized")
+    database_ready = await init_db()
+    if database_ready:
+        print("✅ Database initialized")
+    else:
+        print("⚠️  Database unavailable; starting with database-backed features disabled")
     
     # Start real-time services
     market_streamer = get_market_streamer()
     await market_streamer.start()
     print("📡 Market data streamer started")
     
-    from app.db.database import get_supabase_client
-    alert_checker = get_alert_checker(get_supabase_client())
-    await alert_checker.start()
-    print("🔔 Price alert checker started")
+    alert_checker = None
+    if database_ready:
+        from app.db.database import get_supabase_client
+        alert_checker = get_alert_checker(get_supabase_client())
+        await alert_checker.start()
+        print("🔔 Price alert checker started")
     
     print(f"📊 Environment: {settings.ENVIRONMENT}")
     print(f"🔐 Debug mode: {settings.DEBUG}")
@@ -42,7 +47,8 @@ async def lifespan(app: FastAPI):
     # Shutdown
     print("👋 Shutting down FundaKaMental API...")
     await market_streamer.stop()
-    await alert_checker.stop()
+    if alert_checker:
+        await alert_checker.stop()
     print("✅ Background services stopped")
 
 

@@ -22,6 +22,7 @@ __pycache__/
 venv/
 ENV/
 env/
+backend/.pythonlibs/
 *.egg-info/
 backend/uploads/*
 backend/data/chroma/*

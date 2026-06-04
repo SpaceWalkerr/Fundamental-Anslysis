@@ -48,6 +48,18 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true });
 
         try {
+          const token = localStorage.getItem('auth_token');
+
+          if (TEST_LOGIN_ENABLED) {
+            if (token === TEST_LOGIN_TOKEN) {
+              set({
+                user: TEST_USER,
+                isAuthenticated: true,
+              });
+            }
+            return;
+          }
+
           const {
             data: { session },
           } = await supabase.auth.getSession();
@@ -77,17 +89,7 @@ export const useAuthStore = create<AuthState>()(
             return;
           }
           
-          const token = localStorage.getItem('auth_token');
-          
           if (token) {
-            if (TEST_LOGIN_ENABLED && token === TEST_LOGIN_TOKEN) {
-              set({
-                user: TEST_USER,
-                isAuthenticated: true,
-              });
-              return;
-            }
-
             // Fetch user profile from backend
             const profile = await authApi.getProfile();
 
