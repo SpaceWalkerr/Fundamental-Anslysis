@@ -234,7 +234,7 @@
 
   /* Xtin-style card */
   .xtin-card {
-    @apply bg-white rounded-2xl border border-border p-6 shadow-sm transition-all duration-300;
+    @apply bg-white rounded-2xl border border-border p-4 sm:p-6 shadow-sm transition-all duration-300;
   }
 
   .xtin-card:hover {
@@ -249,6 +249,105 @@
   /* Status pill */
   .status-pill {
     @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium;
+  }
+
+  /* Ticker chip — consistent pill style for quick-access tickers */
+  .ticker-chip {
+    @apply px-3 py-1.5 rounded-full text-xs font-semibold cursor-pointer
+           transition-all duration-200 ease-out
+           hover:scale-105 hover:shadow-sm active:scale-95;
+  }
+
+  /* Section divider with centered label */
+  .section-divider {
+    @apply relative flex items-center gap-2 sm:gap-4 my-6 sm:my-10;
+  }
+
+  .section-divider::before,
+  .section-divider::after {
+    content: '';
+    @apply flex-1 h-px bg-border;
+  }
+
+  .section-divider span {
+    @apply text-xs uppercase tracking-wider font-medium text-muted-foreground
+           px-4 py-1.5 rounded-full bg-secondary/80 whitespace-nowrap
+           flex items-center gap-2;
+  }
+
+  /* Drop zone active pulse animation */
+  .drop-zone-active {
+    animation: pulse-border 1.5s ease-in-out infinite;
+    @apply border-primary bg-accent/40 scale-[1.01];
+  }
+
+  /* Score ring container */
+  .score-ring {
+    @apply relative inline-flex items-center justify-center;
+  }
+
+  .score-ring svg {
+    @apply transform -rotate-90;
+  }
+
+  .score-ring .score-label {
+    @apply absolute inset-0 flex items-center justify-center text-xs font-bold;
+  }
+
+  /* Report card with colored left accent */
+  .report-card {
+    @apply relative overflow-hidden rounded-2xl bg-white border border-border
+           transition-all duration-300 ease-out;
+  }
+
+  .report-card:hover {
+    @apply shadow-md border-primary/30;
+    transform: translateY(-2px);
+  }
+
+  .report-card::before {
+    content: '';
+    @apply absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl;
+  }
+
+  .report-card.trend-up::before {
+    background: hsl(var(--success));
+  }
+
+  .report-card.trend-down::before {
+    background: hsl(var(--destructive));
+  }
+
+  /* Price flash animation on mount */
+  @keyframes price-flash-green {
+    0% { background-color: rgba(34, 139, 80, 0.25); }
+    100% { background-color: transparent; }
+  }
+
+  @keyframes price-flash-red {
+    0% { background-color: rgba(220, 38, 38, 0.25); }
+    100% { background-color: transparent; }
+  }
+
+  .price-flash-up {
+    animation: price-flash-green 1.8s cubic-bezier(0.16, 1, 0.3, 1) 1;
+    @apply px-1.5 py-0.5 rounded transition-all duration-300;
+  }
+
+  .price-flash-down {
+    animation: price-flash-red 1.8s cubic-bezier(0.16, 1, 0.3, 1) 1;
+    @apply px-1.5 py-0.5 rounded transition-all duration-300;
+  }
+
+  /* Shake animation for validation errors */
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    10%, 30%, 50%, 70%, 90% { transform: translateX(-6px); }
+    20%, 40%, 60%, 80% { transform: translateX(6px); }
+  }
+
+  .animate-shake {
+    animation: shake 0.5s ease-in-out;
   }
 }
 

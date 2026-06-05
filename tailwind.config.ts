@@ -144,6 +144,14 @@ export default {
           from: { "--num": "0" },
           to: { "--num": "var(--target)" },
         },
+        "pulse-border": {
+          "0%, 100%": { borderColor: "hsl(152, 69%, 31%)", opacity: "1" },
+          "50%": { borderColor: "hsl(152, 69%, 45%)", opacity: "0.7" },
+        },
+        "gentle-bounce": {
+          "0%, 100%": { transform: "translateY(0)" },
+          "50%": { transform: "translateY(-6px)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -155,6 +163,8 @@ export default {
         "pulse-glow": "pulse-glow 2s ease-in-out infinite",
         "shimmer": "shimmer 2s linear infinite",
         "float": "float 3s ease-in-out infinite",
+        "pulse-border": "pulse-border 1.5s ease-in-out infinite",
+        "gentle-bounce": "gentle-bounce 2s ease-in-out infinite",
       },
     },
   },
