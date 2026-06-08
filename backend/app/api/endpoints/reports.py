@@ -95,8 +95,8 @@ async def get_report(
             detail=f"Report is still being processed. Status: {report['status']}"
         )
     
-    # Return report (assuming JSON structure is stored in report_data column)
-    report_data = report.get('report_data', {})
+    # Prefer the current analysis_result column; report_data is kept for older records.
+    report_data = report.get('analysis_result') or report.get('report_data') or {}
     
     # If report_data is empty, return mock data for now
     if not report_data:

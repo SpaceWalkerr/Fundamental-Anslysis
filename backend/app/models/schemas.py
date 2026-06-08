@@ -55,6 +55,7 @@ class FileUploadResponse(BaseModel):
 class ProcessingStatus(str, Enum):
     """Processing status enum"""
     PENDING = "pending"
+    PROCESSING = "processing"
     UPLOADING = "uploading"
     EXTRACTING = "extracting"
     EMBEDDING = "embedding"
@@ -69,6 +70,9 @@ class AnalysisRequest(BaseModel):
     file_id: Optional[str] = None
     company_ticker: Optional[str] = None
     company_name: Optional[str] = None
+    # Backward-compatible aliases used by the current frontend helper.
+    ticker: Optional[str] = None
+    company: Optional[str] = None
 
 
 class ProcessingStepResponse(BaseModel):
@@ -160,9 +164,9 @@ class CompanySearch(BaseModel):
     sector: str
     price: float
     change_percent: float
-    pe_ratio: float
-    revenue_growth: float
-    profit_margin: float
+    pe_ratio: Optional[float] = None
+    revenue_growth: Optional[float] = None
+    profit_margin: Optional[float] = None
     market_cap: str
 
 

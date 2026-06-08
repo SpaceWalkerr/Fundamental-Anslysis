@@ -4,10 +4,8 @@ Handles file upload and financial analysis
 """
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
 from supabase import Client
-from typing import Optional
 import uuid
 from datetime import datetime
-import os
 
 from app.db.database import get_db
 from app.models.schemas import (
@@ -21,7 +19,6 @@ from app.core.security import get_current_active_user
 from app.core.config import settings
 from app.utils.file_processor import FileProcessor
 from app.utils.ai_analyzer import AIAnalyzer
-import asyncio
 
 
 router = APIRouter()
@@ -146,7 +143,8 @@ async def start_analysis(
         }
         
         document_text = ""
-        company_name = ""
+        company_name = request.company_name or request.company or ""
+        ticker = (request.company_ticker or request.ticker or "").upper()
         
         # Add file or company info
         if request.file_id:
@@ -166,7 +164,9 @@ async def start_analysis(
             
             report_record['source_document_id'] = request.file_id
             document_text = file_result.data.get('extracted_text', '')
-            company_name = file_result.data.get('metadata', {}).get('company_name', 'Unknown Company')
+            metadata = file_result.data.get('metadata') or {}
+            company_name = company_name or metadata.get('company_name') or metadata.get('company') or 'Unknown Company'
+            ticker = ticker or metadata.get('ticker') or 'N/A'
             
             if not document_text:
                 raise HTTPException(
@@ -197,20 +197,43 @@ async def start_analysis(
             .execute()
         
         # Initialize AI analyzer
-        analyzer = AIAnalyzer()
+        provider = "openai" if settings.OPENAI_API_KEY else "anthropic"
+        analyzer = AIAnalyzer(provider=provider)
+
+        if not analyzer.is_available():
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="AI service is not configured. Set OPENAI_API_KEY or ANTHROPIC_API_KEY."
+            )
         
         # Perform AI analysis (this may take a few seconds)
-        analysis_result = await asyncio.to_thread(
-            analyzer.analyze_financial_document,
-            document_text=document_text,
+        analysis_result = await analyzer.analyze_financial_document(
+            extracted_text=document_text,
             company_name=company_name,
-            use_openai=(settings.OPENAI_API_KEY is not None and settings.OPENAI_API_KEY != "")
+            ticker=ticker
         )
+
+        if not analysis_result.get("success", False):
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=analysis_result.get("error", "AI analysis failed")
+            )
         
         # Update report with analysis results
         update_data = {
             "status": ProcessingStatus.COMPLETED.value,
             "analysis_result": analysis_result,
+            "report_data": analysis_result,
+            "company": analysis_result.get("company", company_name),
+            "ticker": analysis_result.get("ticker", ticker),
+            "exchange": analysis_result.get("exchange", "N/A"),
+            "overall_score": analysis_result.get("overall_score"),
+            "summary": analysis_result.get("summary"),
+            "metrics": analysis_result.get("metrics"),
+            "key_ratios": analysis_result.get("key_ratios"),
+            "strengths": analysis_result.get("strengths"),
+            "red_flags": analysis_result.get("red_flags"),
+            "investment_assessment": analysis_result.get("investment_assessment"),
             "completed_at": datetime.utcnow().isoformat()
         }
         

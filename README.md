@@ -87,13 +87,6 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for complete deployment instructions.
 - **Backend:** Deploy to Render (see `render.yaml`)
 - **Database:** Supabase (managed PostgreSQL)
 
-## 📚 Documentation
-
-- [Deployment Guide](DEPLOYMENT.md) - Complete deployment instructions
-- [Quickstart Guide](QUICKSTART.md) - Get started quickly
-- [Frontend Guide](FRONTEND_README.md) - Frontend architecture
-- [Supabase Setup](SUPABASE_SETUP.md) - Database configuration
-- [API Documentation](http://localhost:8080/docs) - Interactive API docs (when running)
 
 ## 🏗️ Tech Stack
 

@@ -11,7 +11,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from app.utils.stock_data_service import get_stock_data_service
-from app.db.database import get_supabase_client
+from app.db.database import get_supabase_admin_client
 
 # Popular Indian stocks to fetch (Yahoo Finance format)
 # Format: SYMBOL.NS for NSE (National Stock Exchange)
@@ -66,7 +66,7 @@ async def populate_stocks():
     
     # Initialize services
     stock_service = get_stock_data_service()
-    db = get_supabase_client()
+    db = get_supabase_admin_client()
     
     # Yahoo Finance doesn't need API keys!
     print("Using Yahoo Finance API (no API key required)\n")
