@@ -174,6 +174,29 @@ const Portfolio = () => {
       });
     }
   };
+  const handleCreatePortfolio = async () => {
+  try {
+    await api.portfolio.createPortfolio({
+      name: "My Portfolio",
+      description: "Created for testing",
+      currency: "USD",
+      is_default: false,
+    });
+
+    toast({
+      title: "Success",
+      description: "Portfolio created successfully",
+    });
+
+    loadPortfolios();
+  } catch (error: any) {
+    toast({
+      title: "Error",
+      description: error.message || "Failed to create portfolio",
+      variant: "destructive",
+    });
+  }
+};
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("en-US", {
@@ -202,7 +225,10 @@ const Portfolio = () => {
       <DashboardLayout>
         <div className="flex flex-col items-center justify-center h-screen gap-4">
           <p className="text-muted-foreground">No portfolios found</p>
-          <Button>Create Portfolio</Button>
+          {/*<Button>Create Portfolio</Button>*/}
+          <Button onClick={handleCreatePortfolio}>
+  Create Portfolio
+</Button>
         </div>
       </DashboardLayout>
     );

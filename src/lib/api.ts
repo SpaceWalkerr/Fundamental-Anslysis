@@ -2,13 +2,25 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 // Helper function to get auth token
+//const getAuthToken = () => {
+  //return localStorage.getItem('auth_token');
+//};
 const getAuthToken = () => {
-  return localStorage.getItem('auth_token');
+  const token = localStorage.getItem('auth_token');
+
+  if (!token && import.meta.env.VITE_ENABLE_TEST_LOGIN === 'true') {
+    return 'dev-test-token';
+  }
+
+  return token;
 };
 
 // Helper function to make authenticated requests
 const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
   const token = getAuthToken();
+
+  console.log("AUTH TOKEN =", token);
+  
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
     ...options.headers,
