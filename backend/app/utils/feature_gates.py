@@ -8,7 +8,8 @@ from functools import wraps
 from typing import Callable, Optional
 from supabase import Client
 
-from ..dependencies import get_current_user, get_supabase_client
+from ..core.security import get_current_user
+from ..db.database import get_db
 from ..utils.stripe_service import StripeService, get_stripe_service
 
 
@@ -18,7 +19,7 @@ from ..utils.stripe_service import StripeService, get_stripe_service
 
 async def require_premium(
     current_user: dict = Depends(get_current_user),
-    supabase: Client = Depends(get_supabase_client)
+    supabase: Client = Depends(get_db)
 ) -> dict:
     """
     Dependency that requires user to have an active premium subscription
@@ -42,7 +43,7 @@ async def require_premium(
     return current_user
 
 
-async def require_feature(feature_name: str):
+def require_feature(feature_name: str):
     """
     Factory function to create a dependency that checks for a specific feature
     
@@ -54,7 +55,7 @@ async def require_feature(feature_name: str):
     """
     async def feature_checker(
         current_user: dict = Depends(get_current_user),
-        supabase: Client = Depends(get_supabase_client)
+        supabase: Client = Depends(get_db)
     ) -> dict:
         stripe_service = get_stripe_service(supabase)
         has_access = await stripe_service.check_feature_access(
@@ -85,7 +86,7 @@ require_email_alerts = require_feature("email_alerts")
 # USAGE LIMIT DEPENDENCIES
 # ============================================================================
 
-async def check_and_increment_usage(
+def check_and_increment_usage(
     limit_type: str,
     increment: bool = True
 ):
@@ -106,7 +107,7 @@ async def check_and_increment_usage(
     """
     async def usage_checker(
         current_user: dict = Depends(get_current_user),
-        supabase: Client = Depends(get_supabase_client)
+        supabase: Client = Depends(get_db)
     ) -> dict:
         stripe_service = get_stripe_service(supabase)
         
@@ -159,7 +160,7 @@ check_pdf_limit = check_and_increment_usage("pdf_exports", increment=True)
 # COMBINED CHECKS
 # ============================================================================
 
-async def require_feature_and_usage(
+def require_feature_and_usage(
     feature_name: str,
     limit_type: str
 ):
@@ -176,7 +177,7 @@ async def require_feature_and_usage(
     """
     async def combined_checker(
         current_user: dict = Depends(get_current_user),
-        supabase: Client = Depends(get_supabase_client)
+        supabase: Client = Depends(get_db)
     ) -> dict:
         stripe_service = get_stripe_service(supabase)
         
@@ -222,7 +223,7 @@ async def require_feature_and_usage(
 
 async def get_user_limits(
     current_user: dict = Depends(get_current_user),
-    supabase: Client = Depends(get_supabase_client)
+    supabase: Client = Depends(get_db)
 ) -> dict:
     """
     Get all usage limits and current usage for a user
@@ -339,7 +340,7 @@ Example 5: Manual check for conditional logic
 @router.get("/dashboard")
 async def dashboard(
     current_user: dict = Depends(get_current_user),
-    supabase: Client = Depends(get_supabase_client)
+    supabase: Client = Depends(get_db)
 ):
     has_technicals = await can_use_feature(
         current_user["id"],

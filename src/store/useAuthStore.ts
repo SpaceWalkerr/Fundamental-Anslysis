@@ -2,7 +2,6 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { authApi } from '@/lib/api';
 import { supabase } from "@/lib/supabase";
-import Dashboard from '@/pages/Dashboard';
 
 interface User {
   id: string;
@@ -19,12 +18,24 @@ interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  skipLogin: () => void;
   loginWithGoogle: () => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   updateUser: (updates: Partial<User>) => Promise<void>;
   initializeAuth: () => Promise<void>;
 }
+
+const TEST_LOGIN_ENABLED = import.meta.env.VITE_ENABLE_TEST_LOGIN === "true";
+const TEST_LOGIN_TOKEN = "dev-test-token";
+const TEST_USER: User = {
+  id: "00000000-0000-4000-8000-000000000001",
+  name: "Test User",
+  email: "test@example.com",
+  plan: "enterprise",
+  reportsUsed: 0,
+  reportsLimit: 999,
+};
 
 export const useAuthStore = create<AuthState>()(
   persist(
@@ -69,6 +80,14 @@ export const useAuthStore = create<AuthState>()(
           const token = localStorage.getItem('auth_token');
           
           if (token) {
+            if (TEST_LOGIN_ENABLED && token === TEST_LOGIN_TOKEN) {
+              set({
+                user: TEST_USER,
+                isAuthenticated: true,
+              });
+              return;
+            }
+
             // Fetch user profile from backend
             const profile = await authApi.getProfile();
 
@@ -116,7 +135,8 @@ export const useAuthStore = create<AuthState>()(
               isAuthenticated: true,
             });
           }
-        } catch (error: any) {
+        } catch (error: unknown) {
+          const err = error as Error;
           console.error('Login error:', error);
 
           set({
@@ -124,10 +144,23 @@ export const useAuthStore = create<AuthState>()(
             isAuthenticated: false,
           });
 
-          throw new Error(error.message || 'Login failed');
+          throw new Error(err.message || 'Login failed');
         } finally {
           set({ isLoading: false });
         }
+      },
+
+      skipLogin: () => {
+        if (!TEST_LOGIN_ENABLED) {
+          throw new Error("Test login is not enabled");
+        }
+
+        localStorage.setItem("auth_token", TEST_LOGIN_TOKEN);
+        set({
+          user: TEST_USER,
+          isAuthenticated: true,
+          isLoading: false,
+        });
       },
 
       loginWithGoogle: async () => {
@@ -143,14 +176,15 @@ export const useAuthStore = create<AuthState>()(
           if (error) {
             throw error;
           }
-        } catch (error: any) {
+        } catch (error: unknown) {
+          const err = error as Error;
           console.error(
             "Google login error:",
             error
           );
 
           throw new Error(
-            error.message ||
+            err.message ||
               "Google login failed"
           );
         }
@@ -169,7 +203,8 @@ export const useAuthStore = create<AuthState>()(
             user: null,
             isAuthenticated: false,
           });
-        } catch (error: any) {
+        } catch (error: unknown) {
+          const err = error as Error;
           console.error('Registration error:', error);
 
           set({
@@ -177,7 +212,7 @@ export const useAuthStore = create<AuthState>()(
             isAuthenticated: false,
           });
 
-          throw new Error(error.message || 'Registration failed');
+          throw new Error(err.message || 'Registration failed');
         } finally {
           set({ isLoading: false });
         }

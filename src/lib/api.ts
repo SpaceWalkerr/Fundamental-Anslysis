@@ -121,8 +121,8 @@ export const analysisApi = {
       method: 'POST',
       body: JSON.stringify({ 
         file_id: fileId, 
-        company, 
-        ticker 
+        company_name: company,
+        company_ticker: ticker
       }),
     });
     
@@ -143,8 +143,8 @@ export const analysisApi = {
   },
 
   searchCompany: async (query: string) => {
-    const data = await fetchWithAuth(`/api/stocks/search?query=${encodeURIComponent(query)}`);
-    return data.results || [];
+    const data = await fetchWithAuth(`/api/stocks/search?q=${encodeURIComponent(query)}`);
+    return data || [];
   },
 };
 

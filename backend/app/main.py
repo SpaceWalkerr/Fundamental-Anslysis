@@ -29,8 +29,8 @@ async def lifespan(app: FastAPI):
     await market_streamer.start()
     print("📡 Market data streamer started")
     
-    from app.db.database import get_supabase_client
-    alert_checker = get_alert_checker(get_supabase_client())
+    from app.db.database import get_supabase_admin_client
+    alert_checker = get_alert_checker(get_supabase_admin_client())
     await alert_checker.start()
     print("🔔 Price alert checker started")
     

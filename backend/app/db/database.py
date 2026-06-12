@@ -43,7 +43,7 @@ async def init_db():
     """
     try:
         # Test connection
-        client = get_supabase_client()
+        client = get_supabase_admin_client()
         
         # Verify connection with a simple query
         # This will fail if credentials are wrong
@@ -75,4 +75,4 @@ async def get_db() -> Client:
     Dependency to inject Supabase client into route handlers
     Usage: db: Client = Depends(get_db)
     """
-    return get_supabase_client()
+    return get_supabase_admin_client()

@@ -138,6 +138,7 @@ async def search_companies(
             ticker = result.get('ticker')
             if ticker:
                 combined[ticker] = CompanySearch(
+                    id=ticker,
                     ticker=ticker,
                     name=result.get('name', ''),
                     sector=result.get('sector', ''),
@@ -154,6 +155,7 @@ async def search_companies(
             ticker = stock.get('ticker')
             if ticker:
                 combined[ticker] = CompanySearch(
+                    id=ticker,
                     ticker=ticker,
                     name=stock.get('name', ''),
                     sector=stock.get('sector', ''),
@@ -381,14 +383,18 @@ async def add_to_watchlist(
     Add a stock to user's watchlist
     """
     try:
+        watchlist_id = _get_or_create_default_watchlist(db, current_user['id'])
         watchlist_data = {
-            "user_id": current_user['id'],
+            "watchlist_id": watchlist_id,
             "ticker": ticker.upper(),
             "notes": notes,
             "target_price": target_price
         }
         
-        result = db.table('watchlists').upsert(watchlist_data).execute()
+        db.table('watchlist_items').upsert(
+            watchlist_data,
+            on_conflict='watchlist_id,ticker'
+        ).execute()
         
         return {
             "success": True,
@@ -410,9 +416,11 @@ async def get_watchlist(
     Get user's watchlist with current prices
     """
     try:
-        result = db.table('watchlists')\
-            .select('*, stocks!inner(*)')\
-            .eq('user_id', current_user['id'])\
+        watchlist_id = _get_or_create_default_watchlist(db, current_user['id'])
+        result = db.table('watchlist_items')\
+            .select('*')\
+            .eq('watchlist_id', watchlist_id)\
+            .order('added_at', desc=True)\
             .execute()
         
         return {"watchlist": result.data or []}
@@ -433,9 +441,10 @@ async def remove_from_watchlist(
     Remove a stock from user's watchlist
     """
     try:
-        db.table('watchlists')\
+        watchlist_id = _get_or_create_default_watchlist(db, current_user['id'])
+        db.table('watchlist_items')\
             .delete()\
-            .eq('user_id', current_user['id'])\
+            .eq('watchlist_id', watchlist_id)\
             .eq('ticker', ticker.upper())\
             .execute()
         
@@ -479,3 +488,33 @@ def _format_market_cap(market_cap) -> str:
             return f"${mc:,.0f}"
     except:
         return str(market_cap)
+
+
+def _get_or_create_default_watchlist(db: Client, user_id: str) -> str:
+    """Return the user's default watchlist id, creating one if needed."""
+    result = db.table('watchlists')\
+        .select('id')\
+        .eq('user_id', user_id)\
+        .eq('is_default', True)\
+        .limit(1)\
+        .execute()
+
+    if result.data:
+        return result.data[0]['id']
+
+    created = db.table('watchlists').insert({
+        "user_id": user_id,
+        "name": "My Watchlist",
+        "description": "Default watchlist for tracking stocks",
+        "is_default": True,
+        "color": "#3b82f6",
+        "sort_order": 0,
+    }).execute()
+
+    if not created.data:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create default watchlist"
+        )
+
+    return created.data[0]['id']
