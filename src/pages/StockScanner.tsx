@@ -576,10 +576,10 @@ const StockScanner = () => {
                       </span>
                     </td>
                     <td className="py-4 px-4 text-right text-foreground">
-                      ${stock.price.toFixed(2)}
+                      {stock.ticker.toUpperCase().endsWith(".NS") || stock.ticker.toUpperCase().endsWith(".BO") ? "₹" : "$"}{stock.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </td>
                     <td className="py-4 px-4 text-right text-foreground">
-                      ${stock.marketCap}
+                      {stock.marketCap.startsWith("$") || stock.marketCap.startsWith("₹") ? stock.marketCap : `$${stock.marketCap}`}
                     </td>
                     <td className="py-4 px-4 text-right text-foreground">
                       {stock.peRatio}x

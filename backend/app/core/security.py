@@ -81,22 +81,6 @@ async def get_current_user(
     """
     token = credentials.credentials
 
-    if (
-        settings.ENABLE_TEST_LOGIN
-        and settings.ENVIRONMENT.lower() != "production"
-        and token == settings.TEST_LOGIN_TOKEN
-    ):
-        return {
-            "id": "00000000-0000-4000-8000-000000000001",
-            "name": "Test User",
-            "email": "test@example.com",
-            "plan": "enterprise",
-            "reports_used": 0,
-            "reports_limit": 999,
-            "created_at": datetime.utcnow(),
-            "updated_at": datetime.utcnow(),
-        }
-    
     try:
         # Validate token with Supabase Auth
         user_response = db.auth.get_user(token)
@@ -110,15 +94,69 @@ async def get_current_user(
         user_id = user_response.user.id
         
         # Get user profile from public.users table
-        result = db.table('users').select('*').eq('id', user_id).single().execute()
-        
-        if not result.data:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="User profile not found",
+        user_data = None
+        try:
+            result = db.table('users').select('*').eq('id', user_id).single().execute()
+            user_data = result.data
+        except Exception as query_err:
+            # PGRST116 or database exception when no row matches the ID
+            print(f"Profile query exception (likely missing profile row): {str(query_err)}")
+            user_data = None
+            
+        if not user_data:
+            # Profile doesn't exist (e.g. Google Sign-In user after database reset)
+            # Create the profile dynamically from validated token metadata
+            email = user_response.user.email
+            name = (
+                user_response.user.user_metadata.get('full_name') or 
+                user_response.user.user_metadata.get('name') or 
+                (email.split('@')[0] if email else "OAuth User")
             )
-        
-        return result.data
+            
+            profile = {
+                "id": user_id,
+                "email": email,
+                "name": name,
+                "plan": "free",
+                "reports_used": 0,
+                "reports_limit": 5,
+            }
+            
+            try:
+                # Recreate profile row
+                insert_result = db.table('users').insert(profile).execute()
+                if insert_result.data and len(insert_result.data) > 0:
+                    user_data = insert_result.data[0]
+                else:
+                    # If insert returns empty but succeeded, fetch again
+                    user_data = profile
+                
+                # Recreate default watchlist for them on the fly
+                try:
+                    db.table('watchlists').insert({
+                        "user_id": user_id,
+                        "name": "My Watchlist",
+                        "description": "Default watchlist for tracking stocks",
+                        "is_default": True,
+                        "color": "#3b82f6"
+                    }).execute()
+                except Exception as w_err:
+                    print(f"Failed to create default watchlist on the fly: {str(w_err)}")
+            except Exception as insert_err:
+                print(f"Failed to auto-recreate user profile: {str(insert_err)}")
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="User profile not found and could not be auto-recreated",
+                )
+        if user_data:
+            user_data = dict(user_data)
+            user_metadata = getattr(user_response.user, 'user_metadata', {}) or {}
+            user_data['company'] = user_metadata.get('company') or ""
+            user_data['email_notifications'] = user_metadata.get('email_notifications') if user_metadata.get('email_notifications') is not None else True
+            user_data['marketing_emails'] = user_metadata.get('marketing_emails') if user_metadata.get('marketing_emails') is not None else False
+            user_data['report_alerts'] = user_metadata.get('report_alerts') if user_metadata.get('report_alerts') is not None else True
+
+        return user_data
         
     except HTTPException:
         raise

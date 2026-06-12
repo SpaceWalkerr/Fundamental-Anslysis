@@ -122,9 +122,9 @@ async def search_companies(
     try:
         api_results = await stock_service.search_companies(q)
         
-        # Also search local database for cached stocks
+        # Also search local database for cached stocks with full metrics
         db_results = db.table('stocks')\
-            .select('ticker, name, sector, price, change_percent, market_cap')\
+            .select('ticker, name, sector, price, change_percent, market_cap, pe_ratio, revenue_growth, profit_margin, currency')\
             .or_(f"ticker.ilike.%{q}%,name.ilike.%{q}%")\
             .eq('is_active', True)\
             .limit(10)\
@@ -133,39 +133,72 @@ async def search_companies(
         # Combine and deduplicate results
         combined = {}
         
-        # Add API results
-        for result in api_results:
-            ticker = result.get('ticker')
-            if ticker:
-                combined[ticker] = CompanySearch(
-                    id=ticker,
-                    ticker=ticker,
-                    name=result.get('name', ''),
-                    sector=result.get('sector', ''),
-                    price=0,  # Will be fetched separately if needed
-                    change_percent=0,
-                    pe_ratio=None,
-                    revenue_growth=None,
-                    profit_margin=None,
-                    market_cap=""
-                )
-        
-        # Add/update from database
+        # 1. Add local database cached results (which have cached metrics)
         for stock in (db_results.data or []):
             ticker = stock.get('ticker')
             if ticker:
+                currency = stock.get('currency') or 'USD'
                 combined[ticker] = CompanySearch(
                     id=ticker,
                     ticker=ticker,
                     name=stock.get('name', ''),
-                    sector=stock.get('sector', ''),
+                    sector=stock.get('sector', '') or 'Equity',
                     price=float(stock.get('price', 0) or 0),
                     change_percent=float(stock.get('change_percent', 0) or 0),
-                    pe_ratio=None,
-                    revenue_growth=None,
-                    profit_margin=None,
-                    market_cap=str(stock.get('market_cap', ''))
+                    pe_ratio=float(stock.get('pe_ratio', 0) or 0) if stock.get('pe_ratio') is not None else None,
+                    revenue_growth=float(stock.get('revenue_growth', 0) or 0) if stock.get('revenue_growth') is not None else None,
+                    profit_margin=float(stock.get('profit_margin', 0) or 0) if stock.get('profit_margin') is not None else None,
+                    market_cap=_format_market_cap(stock.get('market_cap'), currency),
+                    currency=currency
                 )
+        
+        # 2. Add API results (if they aren't already cached)
+        tickers_to_query_quotes = []
+        for result in api_results:
+            ticker = result.get('ticker')
+            if ticker:
+                if ticker not in combined:
+                    currency = result.get('currency') or 'USD'
+                    combined[ticker] = CompanySearch(
+                        id=ticker,
+                        ticker=ticker,
+                        name=result.get('name', ''),
+                        sector=result.get('sector', '') or 'Equity',
+                        price=0.0,
+                        change_percent=0.0,
+                        pe_ratio=None,
+                        revenue_growth=None,
+                        profit_margin=None,
+                        market_cap="",
+                        currency=currency
+                    )
+                    tickers_to_query_quotes.append(ticker)
+        
+        # 3. Query quotes in parallel for tickers that are new (only from API and not in DB)
+        if tickers_to_query_quotes:
+            async def fetch_quote_info(t):
+                try:
+                    q_data = await stock_service.get_quote(t)
+                    return t, q_data
+                except Exception as e:
+                    print(f"Error fetching quote for {t} during search: {e}")
+                    return t, None
+
+            quotes_results = await asyncio.gather(*(fetch_quote_info(t) for t in tickers_to_query_quotes))
+            for t, quote in quotes_results:
+                if quote and t in combined:
+                    currency = quote.get('currency') or combined[t].currency or 'USD'
+                    combined[t].currency = currency
+                    combined[t].price = float(quote.get('price', 0) or 0)
+                    combined[t].change_percent = float(quote.get('change_percent', 0) or 0)
+                    combined[t].market_cap = _format_market_cap(quote.get('market_cap'), currency)
+                    
+                    if quote.get('pe_ratio') is not None:
+                        combined[t].pe_ratio = float(quote.get('pe_ratio') or 0)
+                    if quote.get('revenue_growth') is not None:
+                        combined[t].revenue_growth = float(quote.get('revenue_growth') or 0)
+                    if quote.get('profit_margin') is not None:
+                        combined[t].profit_margin = float(quote.get('profit_margin') or 0)
         
         results = list(combined.values())[:10]
         return results
@@ -217,7 +250,7 @@ async def run_stock_screener(
                 company=stock.get('name', ''),
                 sector=stock.get('sector', ''),
                 price=float(stock.get('price', 0) or 0),
-                market_cap=_format_market_cap(stock.get('market_cap')),
+                market_cap=_format_market_cap(stock.get('market_cap'), stock.get('currency', 'USD')),
                 pe_ratio=float(stock.get('pe_ratio', 0) or 0),
                 revenue_growth=float(stock.get('revenue_growth', 0) or 0),
                 profit_margin=float(stock.get('profit_margin', 0) or 0),
@@ -471,23 +504,25 @@ async def refresh_stock_data(ticker: str, db: Client):
         print(f"Error refreshing {ticker}: {e}")
 
 
-def _format_market_cap(market_cap) -> str:
+def _format_market_cap(market_cap, currency: str = "USD") -> str:
     """Format market cap to human-readable string"""
     if not market_cap:
         return "N/A"
     
+    symbol = "₹" if currency == "INR" else "$"
+    
     try:
         mc = float(market_cap)
         if mc >= 1_000_000_000_000:
-            return f"${mc/1_000_000_000_000:.1f}T"
+            return f"{symbol}{mc/1_000_000_000_000:.1f}T"
         elif mc >= 1_000_000_000:
-            return f"${mc/1_000_000_000:.1f}B"
+            return f"{symbol}{mc/1_000_000_000:.1f}B"
         elif mc >= 1_000_000:
-            return f"${mc/1_000_000:.1f}M"
+            return f"{symbol}{mc/1_000_000:.1f}M"
         else:
-            return f"${mc:,.0f}"
+            return f"{symbol}{mc:,.0f}"
     except:
-        return str(market_cap)
+        return f"{symbol}{market_cap}" if not str(market_cap).startswith(("$", "₹")) else str(market_cap)
 
 
 def _get_or_create_default_watchlist(db: Client, user_id: str) -> str:

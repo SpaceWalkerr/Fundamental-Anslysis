@@ -161,7 +161,7 @@ async def delete_report(
     """
     # Verify report belongs to user
     report_result = db.table('reports')\
-        .select('id')\
+        .select('id, source_document_id')\
         .eq('id', report_id)\
         .eq('user_id', current_user['id'])\
         .single()\
@@ -173,10 +173,24 @@ async def delete_report(
             detail="Report not found"
         )
     
+    report = report_result.data
+    source_doc_id = report.get('source_document_id')
+    
     # Delete report
     db.table('reports').delete().eq('id', report_id).execute()
     
     # Also delete associated chat messages
     db.table('chat_messages').delete().eq('report_id', report_id).execute()
     
+    # Clean up source document and vector embeddings
+    if source_doc_id:
+        try:
+            db.table('source_documents').delete().eq('id', source_doc_id).execute()
+            
+            from app.utils.vector_store import get_vector_store
+            vector_store = get_vector_store()
+            vector_store.delete_document(source_doc_id)
+        except Exception as e:
+            print(f"Error cleaning up document/embeddings during deletion: {e}")
+            
     return {"message": "Report deleted successfully"}

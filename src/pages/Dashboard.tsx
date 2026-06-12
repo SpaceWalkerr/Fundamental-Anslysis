@@ -1,10 +1,12 @@
 import { useState, useRef, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
+import { useAuthStore } from "@/store/useAuthStore";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import CompanySearchResults from "@/components/CompanySearchResults";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { api } from "@/lib/api";
 import {
   Search,
   Upload,
@@ -55,8 +57,11 @@ const watchlist = [
 ];
 
 const Dashboard = () => {
+  const { user } = useAuthStore();
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [reports, setReports] = useState<any[]>([]);
+  const [loadingReports, setLoadingReports] = useState(true);
   const searchRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
@@ -71,8 +76,34 @@ const Dashboard = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Fetch reports list on mount
+  useEffect(() => {
+    const fetchReports = async () => {
+      try {
+        const response = await api.analysis.getReportsList(5, 0);
+        if (response && response.reports) {
+          const formatted = response.reports.map((r: any) => ({
+            id: r.id,
+            company: r.company,
+            ticker: r.ticker,
+            date: new Date(r.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }),
+            score: r.overall_score,
+            summary: r.summary || "Fundamental analysis report.",
+            trend: r.overall_score >= 7.5 ? "up" : "down"
+          }));
+          setReports(formatted);
+        }
+      } catch (err) {
+        console.error("Failed to load dashboard reports:", err);
+      } finally {
+        setLoadingReports(false);
+      }
+    };
+    fetchReports();
+  }, []);
+
   const handleAnalyze = (company: any) => {
-    navigate(`/dashboard/report/1`); // Using the mock report ID 1 for now
+    navigate(`/dashboard/analyze?ticker=${company.ticker}&name=${encodeURIComponent(company.name)}`);
     setIsSearchFocused(false);
   };
 
@@ -87,7 +118,7 @@ const Dashboard = () => {
           className="mb-8"
         >
           <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-1">
-            Welcome back, John
+            Welcome back, {user?.name || "User"}
           </h1>
           <p className="text-muted-foreground">
             Ready to analyze some financials?
@@ -192,53 +223,67 @@ const Dashboard = () => {
             </div>
 
             <div className="space-y-3">
-              {recentReports.map((report, index) => (
-                <motion.div
-                  key={report.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.3, delay: 0.05 * index }}
-                >
-                  <Link
-                    to={`/dashboard/report/${report.id}`}
-                    className="block p-5 rounded-2xl bg-white border border-border hover:border-primary/30 hover:shadow-md transition-all duration-300"
-                  >
-                    <div className="flex items-start justify-between mb-2">
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-bold text-foreground text-sm">
-                            {report.company}
-                          </h3>
-                          <span className="px-2 py-0.5 rounded-full bg-secondary text-xs text-muted-foreground font-medium">
-                            {report.ticker}
-                          </span>
-                        </div>
-                        <p className="text-xs text-muted-foreground flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          {report.date}
-                        </p>
-                      </div>
-                      <div
-                        className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${
-                          report.trend === "up"
-                            ? "bg-primary/10 text-primary"
-                            : "bg-destructive/10 text-destructive"
-                        }`}
-                      >
-                        {report.trend === "up" ? (
-                          <TrendingUp className="w-3.5 h-3.5" />
-                        ) : (
-                          <TrendingDown className="w-3.5 h-3.5" />
-                        )}
-                        {report.score}/10
-                      </div>
-                    </div>
-                    <p className="text-sm text-muted-foreground line-clamp-2">
-                      {report.summary}
-                    </p>
+              {loadingReports ? (
+                <div className="text-center py-12 bg-white rounded-2xl border border-border">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto text-primary"></div>
+                  <p className="mt-4 text-xs text-muted-foreground">Loading recent reports...</p>
+                </div>
+              ) : reports.length === 0 ? (
+                <div className="text-center py-12 bg-white rounded-2xl border border-border">
+                  <p className="text-muted-foreground text-sm mb-4">No reports generated yet.</p>
+                  <Link to="/dashboard/analyze">
+                    <Button size="sm" className="bg-primary text-white hover:bg-primary/90">Create Your First Analysis</Button>
                   </Link>
-                </motion.div>
-              ))}
+                </div>
+              ) : (
+                reports.map((report, index) => (
+                  <motion.div
+                    key={report.id}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.3, delay: 0.05 * index }}
+                  >
+                    <Link
+                      to={`/dashboard/report/${report.id}`}
+                      className="block p-5 rounded-2xl bg-white border border-border hover:border-primary/30 hover:shadow-md transition-all duration-300"
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <h3 className="font-bold text-foreground text-sm">
+                              {report.company}
+                            </h3>
+                            <span className="px-2 py-0.5 rounded-full bg-secondary text-xs text-muted-foreground font-medium">
+                              {report.ticker}
+                            </span>
+                          </div>
+                          <p className="text-xs text-muted-foreground flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            {report.date}
+                          </p>
+                        </div>
+                        <div
+                          className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${
+                            report.trend === "up"
+                              ? "bg-primary/10 text-primary"
+                              : "bg-destructive/10 text-destructive"
+                          }`}
+                        >
+                          {report.trend === "up" ? (
+                            <TrendingUp className="w-3.5 h-3.5" />
+                          ) : (
+                            <TrendingDown className="w-3.5 h-3.5" />
+                          )}
+                          {report.score}/10
+                        </div>
+                      </div>
+                      <p className="text-sm text-muted-foreground line-clamp-2">
+                        {report.summary}
+                      </p>
+                    </Link>
+                  </motion.div>
+                ))
+              )}
             </div>
           </motion.div>
 

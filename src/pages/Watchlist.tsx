@@ -192,9 +192,11 @@ export default function Watchlist() {
     }
   };
 
-  const formatPrice = (price: number | null) => {
+  const formatPrice = (price: number | null, ticker?: string) => {
     if (price === null) return 'N/A';
-    return `$${price.toFixed(2)}`;
+    const isIndian = ticker?.toUpperCase().endsWith('.NS') || ticker?.toUpperCase().endsWith('.BO');
+    const symbol = isIndian ? '₹' : '$';
+    return `${symbol}${price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   const formatChange = (change: number | null, changePct: number | null) => {
@@ -541,13 +543,13 @@ export default function Watchlist() {
                         <div className="text-xs text-muted-foreground">{item.company_name}</div>
                       )}
                     </TableCell>
-                    <TableCell>{formatPrice(item.added_price)}</TableCell>
-                    <TableCell>{formatPrice(item.current_price)}</TableCell>
+                    <TableCell>{formatPrice(item.added_price, item.ticker)}</TableCell>
+                    <TableCell>{formatPrice(item.current_price, item.ticker)}</TableCell>
                     <TableCell>{formatChange(item.change, item.change_pct)}</TableCell>
                     <TableCell>
                       {item.target_price ? (
                         <div>
-                          <div>{formatPrice(item.target_price)}</div>
+                          <div>{formatPrice(item.target_price, item.ticker)}</div>
                           <Badge variant="outline" className="text-xs">
                             {item.target_price_type}
                           </Badge>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
@@ -22,6 +22,7 @@ import {
   DollarSign,
   BarChart3,
   PieChart,
+  Loader2,
 } from "lucide-react";
 
 // Mock report data
@@ -69,54 +70,110 @@ const chatMessages = [
   {
     role: "assistant",
     content:
-      "I've analyzed Apple's financial statements. Feel free to ask me any questions about the analysis!",
+      "I've analyzed the financial statements. Feel free to ask me any questions about the analysis!",
     sources: [],
   },
 ];
-
 const AnalysisReport = () => {
   const { id } = useParams();
   const { toast } = useToast();
-  const [messages, setMessages] = useState(chatMessages);
+  const [report, setReport] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [messages, setMessages] = useState<any[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [isExporting, setIsExporting] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+
+  useEffect(() => {
+    if (!id) return;
+
+    const fetchReport = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await api.analysis.getReport(id);
+        setReport(data);
+        
+        // Fetch chat history
+        try {
+          const history = await api.chat.getChatHistory(id);
+          if (history && history.length > 0) {
+            setMessages(history.map((msg: any) => ({
+              role: msg.role,
+              content: msg.content,
+              sources: msg.sources || []
+            })));
+          } else {
+            setMessages([
+              {
+                role: "assistant",
+                content: `I've analyzed ${data.company}'s financial data. Feel free to ask me any questions about the analysis!`,
+                sources: [],
+              }
+            ]);
+          }
+        } catch (historyErr) {
+          console.error("Failed to load chat history:", historyErr);
+          setMessages([
+            {
+              role: "assistant",
+              content: `I've analyzed ${data.company}'s financial data. Feel free to ask me any questions about the analysis!`,
+              sources: [],
+            }
+          ]);
+        }
+      } catch (err: any) {
+        console.error("Error loading report:", err);
+        setError(err.message || "Failed to load report");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchReport();
+  }, [id]);
 
   const handleExportPDF = async () => {
+    if (!report) return;
     setIsExporting(true);
     try {
+      // Find pe_ratio and roe from key ratios
+      const peRatioVal = parseFloat(report.key_ratios.find((r: any) => r.name.toLowerCase().includes("p/e"))?.value || "0");
+      const roeVal = parseFloat(report.key_ratios.find((r: any) => r.name.toLowerCase() === "roe")?.value || "0");
+      const profitMarginVal = parseFloat(report.key_ratios.find((r: any) => r.name.toLowerCase().includes("profit margin"))?.value || "0");
+
       // Prepare analysis data for PDF
       const analysisData = {
-        ticker: reportData.ticker,
-        company_name: reportData.company,
-        current_price: 175.50, // Mock price
-        recommendation: reportData.overallScore >= 8 ? "BUY" : reportData.overallScore >= 6 ? "HOLD" : "SELL",
-        score: reportData.overallScore * 10, // Convert to 100 scale
+        ticker: report.ticker,
+        company_name: report.company,
+        current_price: 0.0,
+        recommendation: report.overall_score >= 8 ? "BUY" : report.overall_score >= 6 ? "HOLD" : "SELL",
+        score: report.overall_score * 10,
         metrics: {
-          pe_ratio: 28.5,
-          eps: 6.15,
-          market_cap: "2.8T",
-          revenue_growth: 2.8,
-          profit_margin: 25.3,
-          roe: 89.6,
+          pe_ratio: peRatioVal,
+          eps: 0.0,
+          market_cap: "N/A",
+          revenue_growth: report.metrics?.efficiency?.score * 10 || 0,
+          profit_margin: profitMarginVal,
+          roe: roeVal,
         },
         valuation: {
-          fair_value: 185.0,
-          upside_potential: 5.4,
-          valuation_rating: "Fair Value",
+          fair_value: 0.0,
+          upside_potential: 0.0,
+          valuation_rating: report.overall_score >= 8 ? "Undervalued" : "Fair Value",
         },
-        strengths: reportData.strengths,
-        weaknesses: reportData.redFlags,
-        ai_summary: reportData.summary,
-        ai_recommendation: reportData.investmentAssessment,
-        risk_level: "Medium",
-        risk_factors: reportData.redFlags,
+        strengths: report.strengths,
+        weaknesses: report.red_flags,
+        ai_summary: report.summary,
+        ai_recommendation: report.investment_assessment,
+        risk_level: report.red_flags.length > 4 ? "High" : "Medium",
+        risk_factors: report.red_flags,
       };
 
       // Call PDF export API
-      const blob = await api.pdf.exportAnalysis(reportData.ticker, analysisData);
-      
-      // Download the PDF
-      downloadBlob(blob, `analysis_${reportData.ticker}.pdf`);
+      const blob = await api.pdf.exportAnalysis(report.ticker, analysisData);
+      downloadBlob(blob, `analysis_${report.ticker}.pdf`);
       
       toast({
         title: "PDF Exported",
@@ -133,56 +190,73 @@ const AnalysisReport = () => {
     }
   };
 
-  const handleSendMessage = () => {
-    if (!inputValue.trim()) return;
+  const handleSendMessage = async () => {
+    if (!inputValue.trim() || !id || isSending) return;
 
-    const newUserMessage = { role: "user", content: inputValue };
-    
-    let responseContent = "";
-    let sources = [];
-
-    if (inputValue.toLowerCase().includes("revenue")) {
-      responseContent = "Apple's revenue has shown consistent growth driven by Services and iPhone segments. The company reported $394.3B in FY2024, representing a 2.8% YoY increase.";
-      sources = [
-        {
-          document: "Apple Inc. 10-K Annual Report (FY2024)",
-          page: 24,
-          excerpt: "Total net sales increased to $394.3B in fiscal 2024, driven by strong Services and iPhone segment performance.",
-        },
-        {
-          document: "Apple Inc. 10-Q Quarterly Report (Q1 FY2025)",
-          page: 15,
-          excerpt: "Services revenue continues to grow at double-digit rates, with 15%+ YoY growth in the latest quarter.",
-        },
-      ];
-    } else if (inputValue.toLowerCase().includes("debt")) {
-      responseContent = "Apple's total debt stands at $123B, with a debt-to-equity ratio of 1.98. While higher than historical norms, the company's robust cash flow easily covers interest expenses with an interest coverage ratio of 42x.";
-      sources = [
-        {
-          document: "Apple Inc. 10-K Annual Report (FY2024)",
-          page: 42,
-          excerpt: "Total long-term debt as of September 28, 2024 was $123.0 billion, of which $8.0 billion is due within one year.",
-        },
-        {
-          document: "Investor Presentation Q1 2025",
-          page: 8,
-          excerpt: "Apple's strong free cash flow of $110+ billion annually provides ample coverage for debt obligations and shareholder returns.",
-        },
-      ];
-    } else {
-      responseContent = "I'd be happy to explain that. Looking at the financial data, Apple maintains strong fundamentals across most metrics. Is there a specific aspect you'd like me to elaborate on?";
-      sources = [];
-    }
-
-    const mockResponse = {
-      role: "assistant",
-      content: responseContent,
-      sources: sources,
-    };
-
-    setMessages([...messages, newUserMessage, mockResponse]);
+    const userMessage = inputValue;
     setInputValue("");
+    setMessages((prev) => [...prev, { role: "user", content: userMessage, sources: [] }]);
+    setIsSending(true);
+
+    try {
+      const response = await api.chat.sendMessage(id, userMessage);
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: response.message,
+          sources: response.sources.map((src: any) => ({
+            document: src.document || "Source Document",
+            page: src.page || 1,
+            excerpt: src.excerpt || "",
+          })),
+        },
+      ]);
+    } catch (err: any) {
+      console.error("Chat error:", err);
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: err.message || "Failed to get AI response. Please try again.",
+          sources: [],
+        },
+      ]);
+    } finally {
+      setIsSending(false);
+    }
   };
+
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-[80vh]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+            <p className="mt-4 text-muted-foreground">Loading analysis report...</p>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (error || !report) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-[80vh] p-4">
+          <div className="text-center max-w-md bg-white border border-border p-6 rounded-2xl">
+            <div className="text-destructive font-semibold mb-3">Error Loading Report</div>
+            <p className="text-muted-foreground mb-6">{error || "Report details not found."}</p>
+            <Link to="/dashboard">
+              <Button className="bg-primary text-white hover:bg-primary/90">
+                Go to Dashboard
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -224,17 +298,17 @@ const AnalysisReport = () => {
               <div>
                 <div className="flex items-center gap-3 mb-2">
                   <h1 className="text-2xl font-bold text-foreground">
-                    {reportData.company}
+                    {report.company}
                   </h1>
                   <span className="px-2 py-1 rounded bg-primary/10 text-primary text-sm font-medium">
-                    {reportData.ticker}
+                    {report.ticker}
                   </span>
                   <span className="text-sm text-muted-foreground">
-                    {reportData.exchange}
+                    {report.exchange}
                   </span>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Analysis generated on {reportData.date}
+                  Analysis generated on {new Date(report.date).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}
                 </p>
               </div>
               <div className="text-right">
@@ -244,7 +318,7 @@ const AnalysisReport = () => {
                 <div className="flex items-center gap-2">
                   <TrendingUp className="w-5 h-5 text-primary" />
                   <span className="text-3xl font-bold text-primary">
-                    {reportData.overallScore}/10
+                    {report.overall_score}/10
                   </span>
                 </div>
               </div>
@@ -261,7 +335,7 @@ const AnalysisReport = () => {
                   Executive Summary
                 </h2>
                 <p className="text-muted-foreground leading-relaxed">
-                  {reportData.summary}
+                  {report.summary}
                 </p>
               </section>
 
@@ -272,7 +346,7 @@ const AnalysisReport = () => {
                   Financial Health Scores
                 </h2>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {Object.entries(reportData.metrics).map(([key, value]) => (
+                  {Object.entries(report.metrics).map(([key, value]: [string, any]) => (
                     <div
                       key={key}
                       className="p-4 rounded-lg bg-secondary/50 border border-border"
@@ -311,7 +385,7 @@ const AnalysisReport = () => {
                   Key Financial Ratios
                 </h2>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {reportData.keyRatios.map((ratio, index) => (
+                  {report.key_ratios.map((ratio: any, index: number) => (
                     <div
                       key={index}
                       className="p-4 rounded-lg bg-secondary/50 border border-border"
@@ -338,7 +412,7 @@ const AnalysisReport = () => {
                     Strengths
                   </h2>
                   <ul className="space-y-3">
-                    {reportData.strengths.map((strength, index) => (
+                    {report.strengths.map((strength: string, index: number) => (
                       <li
                         key={index}
                         className="flex items-start gap-3 text-sm text-muted-foreground"
@@ -356,7 +430,7 @@ const AnalysisReport = () => {
                     Red Flags & Concerns
                   </h2>
                   <ul className="space-y-3">
-                    {reportData.redFlags.map((flag, index) => (
+                    {report.red_flags.map((flag: string, index: number) => (
                       <li
                         key={index}
                         className="flex items-start gap-3 text-sm text-muted-foreground"
@@ -377,7 +451,7 @@ const AnalysisReport = () => {
                 </h2>
                 <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
                   <p className="text-muted-foreground leading-relaxed">
-                    {reportData.investmentAssessment}
+                    {report.investment_assessment}
                   </p>
                 </div>
               </section>
@@ -424,6 +498,12 @@ const AnalysisReport = () => {
                   sources={message.sources}
                 />
               ))}
+              {isSending && (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  AI is thinking...
+                </div>
+              )}
             </div>
           </ScrollArea>
 
@@ -436,11 +516,13 @@ const AnalysisReport = () => {
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
                 className="flex-1 bg-secondary border-border"
+                disabled={isSending}
               />
               <Button
                 size="icon"
                 onClick={handleSendMessage}
                 className="bg-primary text-white hover:bg-primary/90"
+                disabled={isSending}
               >
                 <Send className="w-4 h-4" />
               </Button>
@@ -452,6 +534,7 @@ const AnalysisReport = () => {
                     key={suggestion}
                     onClick={() => setInputValue(suggestion)}
                     className="px-3 py-1 rounded-full bg-secondary text-xs text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors"
+                    disabled={isSending}
                   >
                     {suggestion}
                   </button>

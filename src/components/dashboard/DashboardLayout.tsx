@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
@@ -38,12 +38,17 @@ const DashboardLayout = ({ children }: SidebarProps) => {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const { logout } = useAuthStore();
+  const { logout, user, refreshProfile } = useAuthStore();
 
   const handleLogout = async () => {
     await logout();
     navigate("/");
   };
+
+  // Sync profile metrics and usage details whenever the layout mounts or route changes
+  useEffect(() => {
+    refreshProfile();
+  }, [refreshProfile, location.pathname]);
 
   return (
     <div className="min-h-screen bg-secondary/30 flex">
@@ -97,15 +102,15 @@ const DashboardLayout = ({ children }: SidebarProps) => {
           })}
         </nav>
 
-        {/* Upgrade Card */}
-        {!collapsed && (
+        {/* Upgrade Card — Dynamic based on plan */}
+        {!collapsed && user?.plan !== 'premium' && user?.plan !== 'enterprise' && (
           <div className="mx-3 mb-3 p-4 rounded-2xl bg-accent border border-primary/10">
             <div className="flex items-center gap-2 mb-1.5">
               <Sparkles className="w-4 h-4 text-primary" />
-              <span className="text-sm font-semibold text-foreground">Free Plan</span>
+              <span className="text-sm font-semibold text-foreground capitalize">{user?.plan || "Free"} Plan</span>
             </div>
             <p className="text-xs text-muted-foreground mb-3">
-              3 reports remaining this month
+              {Math.max(0, (user?.reportsLimit || 5) - (user?.reportsUsed || 0))} reports remaining this month
             </p>
             <Link to="/pricing">
               <Button size="sm" className="w-full bg-primary hover:bg-primary/90 text-white text-xs rounded-full font-medium">

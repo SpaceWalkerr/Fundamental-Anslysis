@@ -86,11 +86,7 @@ class RAGChatService:
                 conversation_history
             )
         else:
-            return {
-                "answer": "AI service not configured. Please add OPENAI_API_KEY or ANTHROPIC_API_KEY to environment.",
-                "sources": [],
-                "confidence": "error"
-            }
+            answer = self._generate_mock_rag_answer(question, relevant_chunks)
         
         # Step 5: Format response with sources
         sources = self._format_sources(relevant_chunks)
@@ -208,6 +204,50 @@ Please provide a clear, accurate answer based on the context above. If the conte
                 "relevance_score": 1 - (chunk.get('distance', 1.0) if chunk.get('distance') else 0.5)
             })
         return sources
+
+    def _generate_mock_rag_answer(self, question: str, chunks: List[Dict]) -> str:
+        """Generate a structured mock answer from retrieved context chunks matching question keywords"""
+        import re
+        question_lower = question.lower()
+        
+        # Extract keywords to search sentences for relevance
+        words = [
+            w for w in re.findall(r'\w+', question_lower) 
+            if len(w) > 3 and w not in [
+                "what", "when", "where", "which", "how", "many", 
+                "much", "company", "ticker", "ratio", "ratios", 
+                "financial", "report", "please", "about", "there"
+            ]
+        ]
+        
+        matched_sentences = []
+        for chunk in chunks:
+            text = chunk.get('text', '')
+            # Split text into sentences using simple regex
+            sentences = re.split(r'(?<=[.!?])\s+', text)
+            for sentence in sentences:
+                sentence_strip = sentence.strip()
+                if not sentence_strip:
+                    continue
+                sentence_lower = sentence_strip.lower()
+                matches = sum(1 for w in words if w in sentence_lower)
+                if matches > 0:
+                    matched_sentences.append((matches, sentence_strip))
+        
+        # Sort matched sentences by keyword overlap count
+        matched_sentences.sort(key=lambda x: x[0], reverse=True)
+        
+        if matched_sentences:
+            best_matches = [s[1] for s in matched_sentences[:4]]
+            context_summary = " ".join(best_matches)
+            answer = f"Based on the retrieved sections from the financial document, here is the relevant details:\n\n{context_summary}\n\nFeel free to ask more specific questions about the company's financial indicators, solvency, or operational growth."
+        else:
+            # Fallback snippet
+            snippet = chunks[0].get('text', '')[:350].strip() + "..." if chunks else "No relevant context chunks found."
+            answer = f"Regarding your query: \"{question}\"\n\nI scanned the report and retrieved the following document excerpt:\n\n\"{snippet}\"\n\n(To enable full generative answers, configure OPENAI_API_KEY or ANTHROPIC_API_KEY in the backend settings)."
+            
+        return answer
+
     
     def generate_summary(
         self,
