@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { api } from "@/lib/api";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
@@ -11,10 +12,11 @@ interface Company {
   sector: string;
   price: number;
   changePercent: number;
-  peRatio: number;
-  revenueGrowth: number;
-  profitMargin: number;
+  peRatio: number | null;
+  revenueGrowth: number | null;
+  profitMargin: number | null;
   marketCap: string;
+  currency?: string;
 }
 
 interface CompanySearchResultsProps {
@@ -23,96 +25,59 @@ interface CompanySearchResultsProps {
   onAnalyze: (company: Company) => void;
 }
 
-const mockCompanies: Company[] = [
-  {
-    id: "1",
-    name: "Apple Inc.",
-    ticker: "AAPL",
-    sector: "Technology",
-    price: 225.5,
-    changePercent: 2.5,
-    peRatio: 28.5,
-    revenueGrowth: 2.8,
-    profitMargin: 25.5,
-    marketCap: "$2.8T",
-  },
-  {
-    id: "2",
-    name: "Microsoft Corporation",
-    ticker: "MSFT",
-    sector: "Technology",
-    price: 415.25,
-    changePercent: 1.8,
-    peRatio: 28.5,
-    revenueGrowth: 16.2,
-    profitMargin: 35.8,
-    marketCap: "$3.1T",
-  },
-  {
-    id: "3",
-    name: "NVIDIA Corporation",
-    ticker: "NVDA",
-    sector: "Technology",
-    price: 880.25,
-    changePercent: 3.2,
-    peRatio: 65.2,
-    revenueGrowth: 126.0,
-    profitMargin: 52.1,
-    marketCap: "$2.2T",
-  },
-  {
-    id: "4",
-    name: "Alphabet Inc.",
-    ticker: "GOOGL",
-    sector: "Technology",
-    price: 178.9,
-    changePercent: -0.5,
-    peRatio: 22.5,
-    revenueGrowth: 11.0,
-    profitMargin: 24.0,
-    marketCap: "$2.2T",
-  },
-  {
-    id: "5",
-    name: "Amazon.com Inc.",
-    ticker: "AMZN",
-    sector: "Consumer Discretionary",
-    price: 195.8,
-    changePercent: 2.1,
-    peRatio: 42.3,
-    revenueGrowth: 10.5,
-    profitMargin: 3.2,
-    marketCap: "$2.0T",
-  },
-  {
-    id: "6",
-    name: "Tesla Inc.",
-    ticker: "TSLA",
-    sector: "Industrials",
-    price: 285.2,
-    changePercent: -1.2,
-    peRatio: 35.8,
-    revenueGrowth: 1.8,
-    profitMargin: 10.5,
-    marketCap: "$900B",
-  },
-];
-
 const CompanySearchResults = ({
   query,
   isLoading = false,
   onAnalyze,
 }: CompanySearchResultsProps) => {
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [fetching, setFetching] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Filter companies based on query
-  const filteredCompanies = mockCompanies.filter(
-    (company) =>
-      company.name.toLowerCase().includes(query.toLowerCase()) ||
-      company.ticker.toLowerCase().includes(query.toLowerCase())
-  );
+  useEffect(() => {
+    if (!query) {
+      setCompanies([]);
+      return;
+    }
 
-  if (isLoading) {
+    const searchCompanies = async () => {
+      setFetching(true);
+      setError(null);
+      try {
+        const response = await api.analysis.searchCompany(query);
+        const mapped = response.map((item: any) => ({
+          id: item.id || item.ticker,
+          name: item.name || item.ticker,
+          ticker: item.ticker,
+          sector: item.sector || "Equity",
+          price: item.price || 0,
+          changePercent: item.change_percent || 0,
+          peRatio: item.pe_ratio !== null && item.pe_ratio !== undefined ? item.pe_ratio : null,
+          revenueGrowth: item.revenue_growth !== null && item.revenue_growth !== undefined ? item.revenue_growth : null,
+          profitMargin: item.profit_margin !== null && item.profit_margin !== undefined ? item.profit_margin : null,
+          marketCap: item.market_cap || "N/A",
+          currency: item.currency || "USD",
+        }));
+        setCompanies(mapped);
+      } catch (err: any) {
+        console.error("Error searching companies:", err);
+        setError("Could not retrieve search results.");
+      } finally {
+        setFetching(false);
+      }
+    };
+
+    const debounceTimer = setTimeout(() => {
+      searchCompanies();
+    }, 400);
+
+    return () => clearTimeout(debounceTimer);
+  }, [query]);
+
+  const showLoading = isLoading || fetching;
+
+  if (showLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
         <LoadingSpinner size="lg" />
@@ -130,7 +95,15 @@ const CompanySearchResults = ({
     );
   }
 
-  if (filteredCompanies.length === 0) {
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12">
+        <p className="text-destructive font-medium">{error}</p>
+      </div>
+    );
+  }
+
+  if (companies.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
         <Search className="w-12 h-12 text-muted-foreground/30 mb-3" />
@@ -146,10 +119,10 @@ const CompanySearchResults = ({
       className="space-y-3"
     >
       <p className="text-sm text-muted-foreground">
-        Found {filteredCompanies.length} results
+        Found {companies.length} results
       </p>
 
-      {filteredCompanies.map((company) => (
+      {companies.map((company) => (
         <motion.div
           key={company.id}
           initial={{ opacity: 0, x: -10 }}
@@ -170,7 +143,7 @@ const CompanySearchResults = ({
             </div>
             <div className="text-right">
               <div className="text-lg font-bold text-foreground">
-                ${company.price.toFixed(2)}
+                {company.currency === "INR" ? "₹" : "$"}{company.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
               <div
                 className={`flex items-center justify-end gap-1 text-xs font-medium ${
@@ -192,25 +165,25 @@ const CompanySearchResults = ({
             <div className="p-2 bg-background/50 rounded">
               <p className="text-xs text-muted-foreground">P/E</p>
               <p className="text-sm font-semibold text-foreground">
-                {company.peRatio.toFixed(1)}x
+                {company.peRatio !== null ? `${company.peRatio.toFixed(1)}x` : "N/A"}
               </p>
             </div>
             <div className="p-2 bg-background/50 rounded">
               <p className="text-xs text-muted-foreground">Rev Growth</p>
               <p className="text-sm font-semibold text-foreground">
-                {company.revenueGrowth.toFixed(1)}%
+                {company.revenueGrowth !== null ? `${company.revenueGrowth.toFixed(1)}%` : "N/A"}
               </p>
             </div>
             <div className="p-2 bg-background/50 rounded">
               <p className="text-xs text-muted-foreground">Margin</p>
               <p className="text-sm font-semibold text-foreground">
-                {company.profitMargin.toFixed(1)}%
+                {company.profitMargin !== null ? `${company.profitMargin.toFixed(1)}%` : "N/A"}
               </p>
             </div>
             <div className="p-2 bg-background/50 rounded">
               <p className="text-xs text-muted-foreground">Market Cap</p>
               <p className="text-sm font-semibold text-foreground">
-                {company.marketCap}
+                {company.marketCap || "N/A"}
               </p>
             </div>
           </div>

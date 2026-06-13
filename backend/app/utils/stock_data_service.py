@@ -91,14 +91,14 @@ class StockDataService:
                 "pe_ratio": info.get("trailingPE") or info.get("forwardPE"),
                 "peg_ratio": info.get("pegRatio"),
                 "pb_ratio": info.get("priceToBook"),
-                "dividend_yield": info.get("dividendYield") * 100 if info.get("dividendYield") else None,
+                "dividend_yield": info.get("dividendYield") * 100 if info.get("dividendYield") is not None else None,
                 "eps": info.get("trailingEps"),
-                "profit_margin": info.get("profitMargins") * 100 if info.get("profitMargins") else None,
-                "operating_margin": info.get("operatingMargins") * 100 if info.get("operatingMargins") else None,
-                "roe": info.get("returnOnEquity") * 100 if info.get("returnOnEquity") else None,
-                "roa": info.get("returnOnAssets") * 100 if info.get("returnOnAssets") else None,
-                "revenue_growth": info.get("revenueGrowth") * 100 if info.get("revenueGrowth") else None,
-                "earnings_growth": info.get("earningsGrowth") * 100 if info.get("earningsGrowth") else None,
+                "profit_margin": info.get("profitMargins") * 100 if info.get("profitMargins") is not None else None,
+                "operating_margin": info.get("operatingMargins") * 100 if info.get("operatingMargins") is not None else None,
+                "roe": info.get("returnOnEquity") * 100 if info.get("returnOnEquity") is not None else None,
+                "roa": info.get("returnOnAssets") * 100 if info.get("returnOnAssets") is not None else None,
+                "revenue_growth": info.get("revenueGrowth") * 100 if info.get("revenueGrowth") is not None else None,
+                "earnings_growth": info.get("earningsGrowth") * 100 if info.get("earningsGrowth") is not None else None,
                 "current_ratio": info.get("currentRatio"),
                 "debt_to_equity": info.get("debtToEquity"),
                 "beta": info.get("beta"),
@@ -295,11 +295,49 @@ class StockDataService:
         Returns:
             Dict with price data
         """
-        if self.fmp_key:
+        if self.use_yfinance:
+            return await self._get_quote_yfinance(ticker)
+        elif self.fmp_key:
             return await self._get_quote_fmp(ticker)
         elif self.alpha_vantage_key:
             return await self._get_quote_alpha_vantage(ticker)
         else:
+            return await self._get_quote_yfinance(ticker)
+
+    async def _get_quote_yfinance(self, ticker: str) -> Optional[Dict]:
+        """Fetch quote from Yahoo Finance (no key required)"""
+        try:
+            loop = asyncio.get_event_loop()
+            stock = await loop.run_in_executor(None, yf.Ticker, ticker)
+            info = await loop.run_in_executor(None, lambda: stock.info)
+            
+            if not info or ('regularMarketPrice' not in info and 'currentPrice' not in info):
+                return None
+            
+            price = info.get("currentPrice") or info.get("regularMarketPrice") or 0
+            prev_close = info.get("regularMarketPreviousClose") or info.get("previousClose") or price
+            change = info.get("regularMarketChange") or (price - prev_close)
+            change_percent = info.get("regularMarketChangePercent") or ((change / prev_close * 100) if prev_close else 0)
+            
+            return {
+                "ticker": ticker.upper(),
+                "price": price,
+                "change": change,
+                "change_percent": change_percent,
+                "volume": info.get("regularMarketVolume") or info.get("volume"),
+                "previous_close": prev_close,
+                "open": info.get("regularMarketOpen") or info.get("open"),
+                "high": info.get("regularMarketDayHigh") or info.get("dayHigh"),
+                "low": info.get("regularMarketDayLow") or info.get("dayLow"),
+                "market_cap": info.get("marketCap"),
+                "pe_ratio": info.get("trailingPE") or info.get("forwardPE"),
+                "eps": info.get("trailingEps"),
+                "currency": info.get("currency"),
+                "revenue_growth": info.get("revenueGrowth") * 100 if info.get("revenueGrowth") is not None else None,
+                "profit_margin": info.get("profitMargins") * 100 if info.get("profitMargins") is not None else None,
+            }
+        except Exception as e:
+            print(f"Error fetching Yahoo Finance quote for {ticker}: {e}")
             return None
     
     async def _get_quote_alpha_vantage(self, ticker: str) -> Optional[Dict]:
@@ -381,12 +419,47 @@ class StockDataService:
         Returns:
             List of matching companies
         """
-        if self.fmp_key:
+        if self.use_yfinance:
+            return await self._search_yfinance(query)
+        elif self.fmp_key:
             return await self._search_fmp(query)
         elif self.alpha_vantage_key:
             return await self._search_alpha_vantage(query)
         else:
-            return []
+            return await self._search_yfinance(query)
+
+    async def _search_yfinance(self, query: str) -> List[Dict]:
+        """Search using Yahoo Finance search API (no key required)"""
+        try:
+            async with httpx.AsyncClient() as client:
+                headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+                response = await client.get(
+                    "https://query2.finance.yahoo.com/v1/finance/search",
+                    params={"q": query, "quotesCount": 10, "newsCount": 0},
+                    headers=headers,
+                    timeout=10.0
+                )
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    quotes = data.get("quotes", [])
+                    
+                    results = []
+                    for quote in quotes:
+                        if quote.get("quoteType") in ["EQUITY", "ETF"]:
+                            symbol = quote.get("symbol")
+                            results.append({
+                                "ticker": symbol,
+                                "name": quote.get("longname") or quote.get("shortname") or symbol,
+                                "currency": "INR" if symbol.endswith(".NS") or symbol.endswith(".BO") else "USD",
+                                "exchange": quote.get("exchDisp") or quote.get("exchange"),
+                                "sector": quote.get("sector", ""),
+                                "industry": quote.get("industry", ""),
+                            })
+                    return results
+        except Exception as e:
+            print(f"Error searching Yahoo Finance: {e}")
+        return []
     
     async def _search_alpha_vantage(self, query: str) -> List[Dict]:
         """Search using Alpha Vantage"""

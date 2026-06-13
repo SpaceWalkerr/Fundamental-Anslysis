@@ -27,6 +27,7 @@ class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
     expires_in: int
+    refresh_token: Optional[str] = None
     user: Dict[str, Any]
 
 
@@ -39,6 +40,10 @@ class UserResponse(BaseModel):
     reports_used: int
     reports_limit: int
     created_at: datetime
+    company: Optional[str] = ""
+    email_notifications: Optional[bool] = True
+    marketing_emails: Optional[bool] = False
+    report_alerts: Optional[bool] = True
 
 
 # ============= Analysis Models =============
@@ -168,6 +173,7 @@ class CompanySearch(BaseModel):
     revenue_growth: Optional[float] = None
     profit_margin: Optional[float] = None
     market_cap: str
+    currency: Optional[str] = "USD"
 
 
 class FilterOperator(str, Enum):

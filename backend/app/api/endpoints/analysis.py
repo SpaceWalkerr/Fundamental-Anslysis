@@ -174,13 +174,106 @@ async def start_analysis(
                     detail="Document has no extracted text. Please reupload the file."
                 )
             
-        elif request.company_ticker or request.company_name:
-            # For company ticker/name, we'd fetch from external API
-            # For now, raise not implemented
-            raise HTTPException(
-                status_code=status.HTTP_501_NOT_IMPLEMENTED,
-                detail="Company ticker analysis not yet implemented. Please upload a financial document."
-            )
+        elif request.company_ticker or request.ticker or request.company_name or request.company:
+            ticker = (request.company_ticker or request.ticker or "").upper()
+            if not ticker:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Ticker symbol must be provided for company analysis"
+                )
+                
+            from app.utils.stock_data_service import get_stock_data_service
+            stock_service = get_stock_data_service()
+            company_data = None
+            try:
+                db_res = db.table('stocks').select('*').eq('ticker', ticker).single().execute()
+                if db_res.data:
+                    company_data = db_res.data
+            except Exception:
+                pass
+                
+            if not company_data:
+                company_data = await stock_service.get_company_overview(ticker)
+                if company_data:
+                    try:
+                        db.table('stocks').upsert(company_data).execute()
+                    except Exception as e:
+                        print(f"Error caching stock data: {e}")
+            
+            if not company_data:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Company details for ticker {ticker} could not be retrieved"
+                )
+                
+            company_name = company_data.get('name') or company_name or ticker
+            report_record['company'] = company_name
+            report_record['ticker'] = ticker
+            
+            document_text = f"""
+Company Profile:
+Ticker: {company_data.get('ticker')}
+Name: {company_data.get('name')}
+Sector: {company_data.get('sector')}
+Industry: {company_data.get('industry')}
+Country: {company_data.get('country')}
+Currency: {company_data.get('currency')}
+Exchange: {company_data.get('exchange')}
+
+Business Description:
+{company_data.get('description')}
+
+Key Fundamental Metrics & Ratios:
+Price: {company_data.get('price')}
+Market Cap: {company_data.get('market_cap')}
+P/E Ratio: {company_data.get('pe_ratio')}
+P/B Ratio: {company_data.get('pb_ratio')}
+PEG Ratio: {company_data.get('peg_ratio')}
+Dividend Yield: {company_data.get('dividend_yield')}%
+EPS: {company_data.get('eps')}
+Profit Margin: {company_data.get('profit_margin')}%
+Operating Margin: {company_data.get('operating_margin')}%
+ROE (Return on Equity): {company_data.get('roe')}%
+ROA (Return on Assets): {company_data.get('roa')}%
+Revenue Growth: {company_data.get('revenue_growth')}%
+Earnings Growth: {company_data.get('earnings_growth')}%
+Current Ratio: {company_data.get('current_ratio')}
+Debt to Equity: {company_data.get('debt_to_equity')}
+Beta: {company_data.get('beta')}
+52-Week High: {company_data.get('week_52_high')}
+52-Week Low: {company_data.get('week_52_low')}
+Average Volume: {company_data.get('avg_volume')}
+Shares Outstanding: {company_data.get('shares_outstanding')}
+"""
+            
+            # Create virtual source document for RAG chat session
+            try:
+                processor = FileProcessor(db)
+                virtual_filename = f"{ticker}_profile.txt"
+                document = await processor.save_document_record(
+                    user_id=current_user['id'],
+                    filename=virtual_filename,
+                    file_size=len(document_text),
+                    file_type=".txt",
+                    storage_path=f"{current_user['id']}/virtual/{ticker}_profile.txt",
+                    extracted_text=document_text,
+                    metadata={"company_name": company_name, "ticker": ticker},
+                    report_id=report_id
+                )
+                report_record['source_document_id'] = document['id']
+                
+                # Chunk and add to vector store
+                from app.utils.text_chunker import chunk_text
+                chunks = chunk_text(document_text)
+                if chunks:
+                    processor.add_to_vector_store(
+                        document_id=document['id'],
+                        chunks=chunks,
+                        user_id=current_user['id'],
+                        filename=virtual_filename
+                    )
+            except Exception as e:
+                print(f"Error creating virtual document for RAG: {e}")
         else:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -200,11 +293,12 @@ async def start_analysis(
         provider = "openai" if settings.OPENAI_API_KEY else "anthropic"
         analyzer = AIAnalyzer(provider=provider)
 
-        if not analyzer.is_available():
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="AI service is not configured. Set OPENAI_API_KEY or ANTHROPIC_API_KEY."
-            )
+        # Allow fallback to mock report generator when AI keys are not configured
+        # if not analyzer.is_available():
+        #     raise HTTPException(
+        #         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        #         detail="AI service is not configured. Set OPENAI_API_KEY or ANTHROPIC_API_KEY."
+        #     )
         
         # Perform AI analysis (this may take a few seconds)
         analysis_result = await analyzer.analyze_financial_document(
