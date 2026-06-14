@@ -66,3 +66,6 @@ boto3==1.35.60
 
 # Monitoring (optional)
 prometheus-client==0.21.0
+
+# Payments
+stripe>=7.0.0
