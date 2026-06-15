@@ -131,6 +131,27 @@ const Portfolio = () => {
       });
     }
   };
+  const handleCreatePortfolio = async () => {
+  try {
+    const portfolio = await api.portfolio.createPortfolio({
+      name: "My Portfolio",
+      description: "",
+      is_default: true,
+    });
+
+    await loadPortfolios();
+
+    if (portfolio?.id) {
+      setSelectedPortfolio(portfolio);
+    }
+  } catch (error: any) {
+    toast({
+      title: "Error",
+      description: error.message || "Failed to create portfolio",
+      variant: "destructive",
+    });
+  }
+};
 
   const handleAddTransaction = async () => {
     if (!selectedPortfolio) return;
@@ -202,7 +223,9 @@ const Portfolio = () => {
       <DashboardLayout>
         <div className="flex flex-col items-center justify-center h-screen gap-4">
           <p className="text-muted-foreground">No portfolios found</p>
-          <Button>Create Portfolio</Button>
+         <Button onClick={handleCreatePortfolio}>
+            Create Portfolio
+         </Button>
         </div>
       </DashboardLayout>
     );
