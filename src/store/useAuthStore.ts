@@ -47,103 +47,92 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true });
 
         try {
-          // Register a completely synchronous auth state change listener to keep tokens and basic session in sync.
-          // This avoids executing any asynchronous or Supabase client auth calls inside onAuthStateChange,
-          // completely preventing deadlocks and concurrent request aborts in GoTrue.
-          supabase.auth.onAuthStateChange((event, session) => {
+          // Subscribe to auth state change listener to sync user state across tabs and on mount.
+          // This fires INITIAL_SESSION on mount once Supabase loads the session asynchronously from storage.
+          supabase.auth.onAuthStateChange(async (event, session) => {
+            console.log("[AuthStore] onAuthStateChange event:", event, "session:", !!session);
+            
             if (session) {
               localStorage.setItem('auth_token', session.access_token);
               if (session.refresh_token) {
                 localStorage.setItem('refresh_token', session.refresh_token);
               }
-            } else if (event === 'SIGNED_OUT') {
+
+              // Check if Multi-Factor Authentication is required for the session
+              const { data: aalData, error: aalError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+              let mfaRequiredForSession = false;
+              if (!aalError && aalData) {
+                mfaRequiredForSession = aalData.nextLevel === 'aal2' && aalData.currentLevel !== 'aal2';
+              }
+
+              if (mfaRequiredForSession) {
+                const { data: factorsData } = await supabase.auth.mfa.listFactors();
+                set({ 
+                  user: null, 
+                  isAuthenticated: false,
+                  mfaRequired: true,
+                  mfaFactors: factorsData?.all || [],
+                  isLoading: false
+                });
+                return;
+              }
+
+              // Sync user profile from backend if we don't have it or if it's a different user
+              const currentState = get();
+              if (!currentState.isAuthenticated || !currentState.user || currentState.user.id !== session.user.id) {
+                try {
+                  const profile = await authApi.getProfile();
+                  if (profile) {
+                    set({
+                      user: {
+                        id: profile.id,
+                        name: profile.name,
+                        email: profile.email,
+                        avatar: profile.avatar_url || undefined,
+                        plan: profile.plan as 'free' | 'premium' | 'enterprise',
+                        reportsUsed: profile.reports_used,
+                        reportsLimit: profile.reports_limit,
+                      },
+                      isAuthenticated: true,
+                      mfaRequired: false,
+                      mfaFactors: [],
+                      isLoading: false
+                    });
+                  }
+                } catch (err) {
+                  console.error("Error fetching profile on auth change:", err);
+                  set({
+                    user: {
+                      id: session.user.id,
+                      name: session.user.user_metadata?.full_name || session.user.user_metadata?.name || "User",
+                      email: session.user.email || "",
+                      avatar: session.user.user_metadata?.avatar_url || undefined,
+                      plan: "free",
+                      reportsUsed: 0,
+                      reportsLimit: 5,
+                    },
+                    isAuthenticated: true,
+                    mfaRequired: false,
+                    mfaFactors: [],
+                    isLoading: false
+                  });
+                }
+              } else {
+                set({ isLoading: false });
+              }
+            } else {
+              // No session (either INITIAL_SESSION with null, or SIGNED_OUT)
               localStorage.removeItem('auth_token');
               localStorage.removeItem('refresh_token');
               set({ 
                 user: null, 
                 isAuthenticated: false,
                 mfaRequired: false,
-                mfaFactors: []
+                mfaFactors: [],
+                isLoading: false
               });
             }
           });
-
-          // Fetch active session. This handles token auto-refresh internally.
-          const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-          if (sessionError) throw sessionError;
-
-          if (session?.user) {
-            localStorage.setItem('auth_token', session.access_token);
-            if (session.refresh_token) {
-              localStorage.setItem('refresh_token', session.refresh_token);
-            }
-
-            // Check if Multi-Factor Authentication is required for the session
-            const { data: aalData, error: aalError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-            let mfaRequiredForSession = false;
-            if (!aalError && aalData) {
-              mfaRequiredForSession = aalData.nextLevel === 'aal2' && aalData.currentLevel !== 'aal2';
-            }
-
-            if (mfaRequiredForSession) {
-              // Retrieve active factors to display in verification form
-              const { data: factorsData } = await supabase.auth.mfa.listFactors();
-              set({ 
-                user: null, 
-                isAuthenticated: false,
-                mfaRequired: true,
-                mfaFactors: factorsData?.all || []
-              });
-              return;
-            }
-
-            // Sync user profile from backend
-            try {
-              const profile = await authApi.getProfile();
-              if (profile) {
-                set({
-                  user: {
-                    id: profile.id,
-                    name: profile.name,
-                    email: profile.email,
-                    avatar: profile.avatar_url || undefined,
-                    plan: profile.plan as 'free' | 'premium' | 'enterprise',
-                    reportsUsed: profile.reports_used,
-                    reportsLimit: profile.reports_limit,
-                  },
-                  isAuthenticated: true,
-                  mfaRequired: false,
-                  mfaFactors: []
-                });
-              }
-            } catch (err) {
-              console.error("Error fetching profile on initialization:", err);
-              // Fallback to supabase user metadata if backend profile fetch fails
-              set({
-                user: {
-                  id: session.user.id,
-                  name: session.user.user_metadata?.full_name || session.user.user_metadata?.name || "User",
-                  email: session.user.email || "",
-                  avatar: session.user.user_metadata?.avatar_url || undefined,
-                  plan: "free",
-                  reportsUsed: 0,
-                  reportsLimit: 5,
-                },
-                isAuthenticated: true,
-                mfaRequired: false,
-                mfaFactors: []
-              });
-            }
-          } else {
-            localStorage.removeItem('auth_token');
-            localStorage.removeItem('refresh_token');
-            set({ 
-              user: null, 
-              isAuthenticated: false,
-              mfaRequired: false,
-              mfaFactors: []
-            });
-          }
         } catch (error) {
           console.error('Error initializing auth:', error);
           localStorage.removeItem('auth_token');
@@ -152,10 +141,9 @@ export const useAuthStore = create<AuthState>()(
             user: null, 
             isAuthenticated: false,
             mfaRequired: false,
-            mfaFactors: []
+            mfaFactors: [],
+            isLoading: false
           });
-        } finally {
-          set({ isLoading: false });
         }
       },
 
@@ -285,20 +273,24 @@ export const useAuthStore = create<AuthState>()(
       },
 
       logout: async () => {
+        // Clear local storage and state immediately for instant responsive feedback
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('refresh_token');
+        set({ 
+          user: null, 
+          isAuthenticated: false,
+          mfaRequired: false,
+          mfaFactors: []
+        });
+
+        // Clean up sessions on servers in the background
         try {
-          await authApi.logout();
-          await supabase.auth.signOut();
+          await Promise.all([
+            authApi.logout().catch(err => console.warn("Backend logout error:", err)),
+            supabase.auth.signOut().catch(err => console.warn("Supabase logout error:", err))
+          ]);
         } catch (error) {
-          console.error('Logout error:', error);
-        } finally {
-          localStorage.removeItem('auth_token');
-          localStorage.removeItem('refresh_token');
-          set({ 
-            user: null, 
-            isAuthenticated: false,
-            mfaRequired: false,
-            mfaFactors: []
-          });
+          console.error('Logout background API error:', error);
         }
       },
 

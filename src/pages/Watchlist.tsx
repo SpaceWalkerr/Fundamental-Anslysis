@@ -55,6 +55,7 @@ export default function Watchlist() {
   const [items, setItems] = useState<WatchlistItem[]>([]);
   const [summary, setSummary] = useState<WatchlistSummary | null>(null);
   const [loading, setLoading] = useState(true);
+  const [itemsLoading, setItemsLoading] = useState(true);
   
   // Create watchlist dialog
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -102,12 +103,15 @@ export default function Watchlist() {
   };
 
   const loadWatchlistItems = async (watchlistId: string) => {
+    setItemsLoading(true);
     try {
       const data = await api.watchlists.getWatchlistItems(watchlistId, true);
       setItems(data);
     } catch (error) {
       toast.error('Failed to load watchlist items');
       console.error(error);
+    } finally {
+      setItemsLoading(false);
     }
   };
 
@@ -511,7 +515,12 @@ export default function Watchlist() {
           )}
         </CardHeader>
         <CardContent>
-          {items.length === 0 ? (
+          {itemsLoading ? (
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+              <p className="mt-4 text-xs text-muted-foreground">Loading watchlist items...</p>
+            </div>
+          ) : items.length === 0 ? (
             <div className="text-center py-12">
               <AlertCircle className="w-12 h-12 text-muted-foreground/50 mx-auto mb-4" />
               <p className="text-muted-foreground mb-4">No stocks in this watchlist</p>

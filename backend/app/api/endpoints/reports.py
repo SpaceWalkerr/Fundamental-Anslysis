@@ -63,6 +63,30 @@ async def get_reports_list(
     )
 
 
+@router.get("/check/{ticker}")
+async def check_report_exists(
+    ticker: str,
+    current_user: dict = Depends(get_current_active_user),
+    db: Client = Depends(get_db)
+):
+    """
+    Check if a completed report exists for the given ticker and user
+    """
+    ticker_upper = ticker.upper().strip()
+    result = db.table('reports')\
+        .select('id')\
+        .eq('ticker', ticker_upper)\
+        .eq('user_id', current_user['id'])\
+        .eq('status', 'completed')\
+        .order('created_at', desc=True)\
+        .limit(1)\
+        .execute()
+        
+    if result.data:
+        return {"exists": True, "report_id": result.data[0]['id']}
+    return {"exists": False}
+
+
 @router.get("/{report_id}", response_model=AnalysisReportResponse)
 async def get_report(
     report_id: str,

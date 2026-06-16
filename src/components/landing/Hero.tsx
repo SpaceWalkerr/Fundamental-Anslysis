@@ -1,18 +1,43 @@
-﻿import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Search } from "lucide-react";
+import { Search, Loader2 } from "lucide-react";
 import CompanySearchResults from "@/components/CompanySearchResults";
 import Logo from "@/components/brand/Logo";
+import { useAuthStore } from "@/store/useAuthStore";
+import { api } from "@/lib/api";
 
 const Hero = () => {
   const [query, setQuery] = useState("");
   const [isFocused, setIsFocused] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuthStore();
 
-  const handleAnalyze = (company: any) => {
-    // Navigate to a mock analysis report for now
-    navigate(`/dashboard/report/1`);
+  const handleAnalyze = async (company: any) => {
+    if (isAnalyzing) return;
+
+    if (!isAuthenticated) {
+      navigate(`/dashboard/analyze?ticker=${company.ticker}&name=${encodeURIComponent(company.name)}`);
+      return;
+    }
+
+    setIsAnalyzing(true);
+    try {
+      const res = await api.analysis.checkReportExists(company.ticker);
+      if (res && res.exists && res.report_id) {
+        navigate(`/dashboard/report/${res.report_id}`);
+      } else {
+        const analysisRes = await api.analysis.analyzeFile(null, company.name, company.ticker);
+        navigate(`/dashboard/report/${analysisRes.reportId}`);
+      }
+    } catch (err) {
+      console.error("Error checking or generating report:", err);
+      // Fallback
+      navigate(`/dashboard/analyze?ticker=${company.ticker}&name=${encodeURIComponent(company.name)}`);
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   // Close search results when clicking outside
@@ -27,8 +52,8 @@ const Hero = () => {
   }, []);
 
   const pills = [
-    "Apple", "Microsoft", "NVIDIA",
-    "Alphabet", "Amazon", "Tesla"
+    "Reliance", "TCS", "Infosys",
+    "HDFC Bank", "Apple", "Microsoft"
   ];
 
   return (
@@ -48,7 +73,11 @@ const Hero = () => {
         {/* Search Bar Container */}
         <div className="w-full relative mb-8" ref={searchRef}>
           <div className={`flex items-center w-full bg-white rounded-md border ${isFocused ? "border-primary shadow-md ring-1 ring-primary/20" : "border-gray-200"} transition-all duration-200`}>
-            <Search className="w-5 h-5 text-gray-400 ml-4 flex-shrink-0" />
+            {isAnalyzing ? (
+              <Loader2 className="w-5 h-5 text-primary ml-4 flex-shrink-0 animate-spin" />
+            ) : (
+              <Search className="w-5 h-5 text-gray-400 ml-4 flex-shrink-0" />
+            )}
             <input
               type="text"
               placeholder="Search for a company (e.g. Apple, MSFT)"
@@ -59,6 +88,7 @@ const Hero = () => {
                 setIsFocused(true);
               }}
               onFocus={() => setIsFocused(true)}
+              disabled={isAnalyzing}
             />
           </div>
 

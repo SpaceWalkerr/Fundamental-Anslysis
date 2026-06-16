@@ -10,6 +10,11 @@ import os
 from app.core.config import settings
 import yfinance as yf
 
+class YahooFinanceRateLimitError(Exception):
+    """Exception raised when Yahoo Finance rate limit is hit"""
+    pass
+
+
 class StockDataService:
     """
     Service for fetching stock market data
@@ -20,6 +25,26 @@ class StockDataService:
         """Initialize stock data service"""
         # Yahoo Finance needs no API key - always available
         self.use_yfinance = True
+        
+        # Configure a browser-like requests Session for yfinance to bypass bot detection/rate limits
+        import requests
+        import random
+        
+        user_agents = [
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0",
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+        ]
+        
+        self.session = requests.Session()
+        self.session.headers.update({
+            'User-Agent': random.choice(user_agents),
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Connection': 'keep-alive',
+        })
         
         self.alpha_vantage_key = settings.ALPHA_VANTAGE_API_KEY if hasattr(settings, 'ALPHA_VANTAGE_API_KEY') else os.getenv('ALPHA_VANTAGE_API_KEY')
         self.fmp_key = settings.FMP_API_KEY if hasattr(settings, 'FMP_API_KEY') else os.getenv('FMP_API_KEY')
@@ -71,7 +96,7 @@ class StockDataService:
         try:
             # Fetch data in executor to avoid blocking
             loop = asyncio.get_event_loop()
-            stock = await loop.run_in_executor(None, yf.Ticker, ticker)
+            stock = await loop.run_in_executor(None, lambda: yf.Ticker(ticker, session=self.session))
             info = await loop.run_in_executor(None, lambda: stock.info)
             
             if not info or 'symbol' not in info:
@@ -110,7 +135,10 @@ class StockDataService:
                 "last_updated": datetime.utcnow().isoformat()
             }
         except Exception as e:
-            print(f"Error fetching Yahoo Finance data for {ticker}: {e}")
+            err_msg = str(e)
+            print(f"Error fetching Yahoo Finance data for {ticker}: {err_msg}")
+            if "Too Many Requests" in err_msg or "Rate limited" in err_msg or "rate limit" in err_msg.lower():
+                raise YahooFinanceRateLimitError(f"Yahoo Finance rate limit hit on {ticker}: {err_msg}") from e
             return None
     
     async def _get_overview_alpha_vantage(self, ticker: str) -> Optional[Dict]:
@@ -308,7 +336,7 @@ class StockDataService:
         """Fetch quote from Yahoo Finance (no key required)"""
         try:
             loop = asyncio.get_event_loop()
-            stock = await loop.run_in_executor(None, yf.Ticker, ticker)
+            stock = await loop.run_in_executor(None, lambda: yf.Ticker(ticker, session=self.session))
             info = await loop.run_in_executor(None, lambda: stock.info)
             
             if not info or ('regularMarketPrice' not in info and 'currentPrice' not in info):
@@ -337,7 +365,10 @@ class StockDataService:
                 "profit_margin": info.get("profitMargins") * 100 if info.get("profitMargins") is not None else None,
             }
         except Exception as e:
-            print(f"Error fetching Yahoo Finance quote for {ticker}: {e}")
+            err_msg = str(e)
+            print(f"Error fetching Yahoo Finance quote for {ticker}: {err_msg}")
+            if "Too Many Requests" in err_msg or "Rate limited" in err_msg or "rate limit" in err_msg.lower():
+                raise YahooFinanceRateLimitError(f"Yahoo Finance rate limit hit on {ticker}: {err_msg}") from e
             return None
     
     async def _get_quote_alpha_vantage(self, ticker: str) -> Optional[Dict]:
@@ -409,33 +440,35 @@ class StockDataService:
             print(f"Error fetching FMP quote for {ticker}: {e}")
             return None
     
-    async def search_companies(self, query: str) -> List[Dict]:
+    async def search_companies(self, query: str, limit: int = 10) -> List[Dict]:
         """
         Search for companies by name or ticker
         
         Args:
             query: Search term
+            limit: Maximum number of results
             
         Returns:
             List of matching companies
         """
         if self.use_yfinance:
-            return await self._search_yfinance(query)
+            return await self._search_yfinance(query, limit=limit)
         elif self.fmp_key:
-            return await self._search_fmp(query)
+            return await self._search_fmp(query, limit=limit)
         elif self.alpha_vantage_key:
-            return await self._search_alpha_vantage(query)
+            return await self._search_alpha_vantage(query, limit=limit)
         else:
-            return await self._search_yfinance(query)
+            return await self._search_yfinance(query, limit=limit)
 
-    async def _search_yfinance(self, query: str) -> List[Dict]:
+    async def _search_yfinance(self, query: str, limit: int = 10) -> List[Dict]:
         """Search using Yahoo Finance search API (no key required)"""
         try:
             async with httpx.AsyncClient() as client:
                 headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+                # Query more quotes to ensure we have enough candidates after filtering
                 response = await client.get(
                     "https://query2.finance.yahoo.com/v1/finance/search",
-                    params={"q": query, "quotesCount": 10, "newsCount": 0},
+                    params={"q": query, "quotesCount": max(limit * 3, 30), "newsCount": 0},
                     headers=headers,
                     timeout=10.0
                 )
@@ -446,22 +479,43 @@ class StockDataService:
                     
                     results = []
                     for quote in quotes:
-                        if quote.get("quoteType") in ["EQUITY", "ETF"]:
-                            symbol = quote.get("symbol")
-                            results.append({
-                                "ticker": symbol,
-                                "name": quote.get("longname") or quote.get("shortname") or symbol,
-                                "currency": "INR" if symbol.endswith(".NS") or symbol.endswith(".BO") else "USD",
-                                "exchange": quote.get("exchDisp") or quote.get("exchange"),
-                                "sector": quote.get("sector", ""),
-                                "industry": quote.get("industry", ""),
-                            })
-                    return results
+                        # Only allow EQUITY (stocks)
+                        if quote.get("quoteType") == "EQUITY":
+                            symbol = quote.get("symbol", "")
+                            symbol_upper = symbol.upper()
+                            
+                            is_indian = symbol_upper.endswith(".NS") or symbol_upper.endswith(".BO")
+                            is_us = False
+                            
+                            if not is_indian:
+                                if "." in symbol_upper:
+                                    parts = symbol_upper.split('.')
+                                    # Allow US stock classes (e.g. BRK.A) but exclude foreign suffixes (.MX, .NE, etc.)
+                                    is_us = len(parts[-1]) == 1
+                                else:
+                                    is_us = True
+                            
+                            if is_indian or is_us:
+                                results.append({
+                                    "ticker": symbol,
+                                    "name": quote.get("longname") or quote.get("shortname") or symbol,
+                                    "currency": "INR" if is_indian else "USD",
+                                    "exchange": quote.get("exchDisp") or quote.get("exchange"),
+                                    "sector": quote.get("sector", ""),
+                                    "industry": quote.get("industry", ""),
+                                })
+                    
+                    # Prioritize Indian stocks first, then US stocks
+                    indian_stocks = [r for r in results if r["ticker"].upper().endswith(".NS") or r["ticker"].upper().endswith(".BO")]
+                    us_stocks = [r for r in results if not (r["ticker"].upper().endswith(".NS") or r["ticker"].upper().endswith(".BO"))]
+                    
+                    sorted_results = indian_stocks + us_stocks
+                    return sorted_results[:limit]
         except Exception as e:
             print(f"Error searching Yahoo Finance: {e}")
         return []
     
-    async def _search_alpha_vantage(self, query: str) -> List[Dict]:
+    async def _search_alpha_vantage(self, query: str, limit: int = 10) -> List[Dict]:
         """Search using Alpha Vantage"""
         await self._rate_limit()
         
@@ -489,19 +543,19 @@ class StockDataService:
                             "currency": match.get("8. currency"),
                             "match_score": float(match.get("9. matchScore", 0))
                         }
-                        for match in matches[:10]
+                        for match in matches[:limit]
                     ]
         except Exception as e:
             print(f"Error searching companies: {e}")
             return []
     
-    async def _search_fmp(self, query: str) -> List[Dict]:
+    async def _search_fmp(self, query: str, limit: int = 10) -> List[Dict]:
         """Search using Financial Modeling Prep"""
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.get(
                     f"{self.fmp_base}/search",
-                    params={"query": query, "apikey": self.fmp_key, "limit": 10},
+                    params={"query": query, "apikey": self.fmp_key, "limit": limit},
                     timeout=10.0
                 )
                 
@@ -515,7 +569,7 @@ class StockDataService:
                             "currency": result.get("currency"),
                             "exchange": result.get("stockExchange"),
                         }
-                        for result in results[:10]
+                        for result in results[:limit]
                     ]
         except Exception as e:
             print(f"Error searching FMP: {e}")

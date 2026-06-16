@@ -162,6 +162,10 @@ export const analysisApi = {
     return await fetchWithAuth(`/api/reports/${reportId}`);
   },
 
+  checkReportExists: async (ticker: string) => {
+    return await fetchWithAuth(`/api/reports/check/${ticker}`);
+  },
+
   getReportsList: async (limit: number = 20, offset: number = 0) => {
     return await fetchWithAuth(`/api/reports/list?limit=${limit}&offset=${offset}`);
   },

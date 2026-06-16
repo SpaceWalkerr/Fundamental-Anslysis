@@ -59,7 +59,35 @@ const CompanySearchResults = ({
           marketCap: item.market_cap || "N/A",
           currency: item.currency || "USD",
         }));
-        setCompanies(mapped);
+        const filtered = mapped.filter((item: any) => {
+          const tickerUpper = item.ticker.toUpperCase();
+          
+          const isIndian = tickerUpper.endsWith(".NS") || tickerUpper.endsWith(".BO");
+          let isUS = false;
+          if (!isIndian) {
+            if (tickerUpper.includes(".")) {
+              const parts = tickerUpper.split(".");
+              isUS = parts[parts.length - 1].length === 1;
+            } else {
+              const hasOptionPattern = /^[A-Z]{1,6}\d{6}[CP]\d{8}$/i.test(tickerUpper);
+              const isCrypto = tickerUpper.includes("-") && (tickerUpper.endsWith("-USD") || tickerUpper.endsWith("-EUR") || tickerUpper.endsWith("-INR"));
+              isUS = !hasOptionPattern && !isCrypto;
+            }
+          }
+          
+          const sectorUpper = (item.sector || "").toUpperCase();
+          const nameUpper = (item.name || "").toUpperCase();
+          const isOption = sectorUpper.includes("OPTION") || nameUpper.includes("OPTION");
+          const isETF = sectorUpper.includes("ETF") || sectorUpper.includes("EXCHANGE TRADED FUND") || nameUpper.includes(" ETF") || nameUpper.includes("TRUST");
+          
+          return (isIndian || isUS) && !isOption && !isETF;
+        });
+
+        const indianStocks = filtered.filter((item: any) => item.ticker.toUpperCase().endsWith(".NS") || item.ticker.toUpperCase().endsWith(".BO"));
+        const usStocks = filtered.filter((item: any) => !(item.ticker.toUpperCase().endsWith(".NS") || item.ticker.toUpperCase().endsWith(".BO")));
+        const sorted = [...indianStocks, ...usStocks];
+
+        setCompanies(sorted);
       } catch (err: any) {
         console.error("Error searching companies:", err);
         setError("Could not retrieve search results.");

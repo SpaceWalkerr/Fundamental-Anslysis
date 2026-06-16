@@ -72,6 +72,7 @@ const Portfolio = () => {
   const [holdings, setHoldings] = useState<Holding[]>([]);
   const [summary, setSummary] = useState<PortfolioSummary | null>(null);
   const [loading, setLoading] = useState(true);
+  const [holdingsLoading, setHoldingsLoading] = useState(true);
   const [showTransactionDialog, setShowTransactionDialog] = useState(false);
   const [transactionData, setTransactionData] = useState({
     ticker: "",
@@ -115,6 +116,7 @@ const Portfolio = () => {
   };
 
   const loadPortfolioData = async (portfolioId: string) => {
+    setHoldingsLoading(true);
     try {
       const [holdingsData, summaryData] = await Promise.all([
         api.portfolio.getHoldings(portfolioId, true),
@@ -129,6 +131,8 @@ const Portfolio = () => {
         description: error.message || "Failed to load portfolio data",
         variant: "destructive",
       });
+    } finally {
+      setHoldingsLoading(false);
     }
   };
   const handleCreatePortfolio = async () => {
@@ -477,7 +481,12 @@ const Portfolio = () => {
             <h2 className="font-semibold text-foreground">Holdings</h2>
           </div>
 
-          {holdings.length === 0 ? (
+          {holdingsLoading ? (
+            <div className="p-12 text-center text-muted-foreground">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+              <p className="mt-4 text-xs text-muted-foreground">Loading holdings...</p>
+            </div>
+          ) : holdings.length === 0 ? (
             <div className="p-12 text-center text-muted-foreground">
               <p>No holdings yet. Add your first transaction to get started.</p>
             </div>

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useAuthStore } from "@/store/useAuthStore";
@@ -7,6 +7,7 @@ import CompanySearchResults from "@/components/CompanySearchResults";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
+import { useMarketData } from "@/hooks/use-market-data";
 import {
   Search,
   Upload,
@@ -17,6 +18,8 @@ import {
   ArrowRight,
   Plus,
   HelpCircle,
+  X,
+  Loader2,
 } from "lucide-react";
 
 const recentReports = [
@@ -49,21 +52,201 @@ const recentReports = [
   },
 ];
 
-const watchlist = [
-  { ticker: "AAPL", name: "Apple", price: 225.50, change: 2.35 },
-  { ticker: "MSFT", name: "Microsoft", price: 415.25, change: 1.82 },
-  { ticker: "GOOGL", name: "Alphabet", price: 178.90, change: -0.54 },
-  { ticker: "NVDA", name: "NVIDIA", price: 880.25, change: 5.12 },
-];
-
 const Dashboard = () => {
   const { user } = useAuthStore();
+  const userKey = user ? `quick_access_watchlist_${user.id}` : "quick_access_watchlist";
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [reports, setReports] = useState<any[]>([]);
   const [loadingReports, setLoadingReports] = useState(true);
   const searchRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+
+  const [quickAccessList, setQuickAccessList] = useState<any[]>(() => {
+    const cached = localStorage.getItem(userKey);
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        const hasIndian = parsed.some((item: any) => item.ticker.toUpperCase().endsWith(".NS") || item.ticker.toUpperCase().endsWith(".BO"));
+        if (hasIndian) {
+          return parsed;
+        }
+      } catch (e) {
+        console.error("Failed to parse cached quick access list:", e);
+      }
+    }
+    const defaultList = [
+      { ticker: "RELIANCE.NS", name: "Reliance Industries", price: 2450.00, change: 1.25 },
+      { ticker: "TCS.NS", name: "Tata Consultancy Services", price: 3820.00, change: -0.45 },
+      { ticker: "INFY.NS", name: "Infosys", price: 1480.00, change: 2.10 },
+      { ticker: "AAPL", name: "Apple", price: 225.50, change: 2.35 },
+      { ticker: "MSFT", name: "Microsoft", price: 415.25, change: 1.82 },
+    ];
+    localStorage.setItem(userKey, JSON.stringify(defaultList));
+    return defaultList;
+  });
+
+  useEffect(() => {
+    const cached = localStorage.getItem(userKey);
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        const hasIndian = parsed.some((item: any) => item.ticker.toUpperCase().endsWith(".NS") || item.ticker.toUpperCase().endsWith(".BO"));
+        if (hasIndian) {
+          setQuickAccessList(parsed);
+          return;
+        }
+      } catch (e) {
+        console.error("Failed to parse cached quick access list:", e);
+      }
+    }
+    const defaultList = [
+      { ticker: "RELIANCE.NS", name: "Reliance Industries", price: 2450.00, change: 1.25 },
+      { ticker: "TCS.NS", name: "Tata Consultancy Services", price: 3820.00, change: -0.45 },
+      { ticker: "INFY.NS", name: "Infosys", price: 1480.00, change: 2.10 },
+      { ticker: "AAPL", name: "Apple", price: 225.50, change: 2.35 },
+      { ticker: "MSFT", name: "Microsoft", price: 415.25, change: 1.82 },
+    ];
+    localStorage.setItem(userKey, JSON.stringify(defaultList));
+    setQuickAccessList(defaultList);
+  }, [user?.id]);
+
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [dragActive, setDragActive] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleDrag = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const file = e.dataTransfer.files[0];
+      if (file.size > 25 * 1024 * 1024) {
+        alert("File size exceeds 25MB limit.");
+        return;
+      }
+      setSelectedFile(file);
+    }
+  }, []);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      if (file.size > 25 * 1024 * 1024) {
+        alert("File size exceeds 25MB limit.");
+        return;
+      }
+      setSelectedFile(file);
+    }
+  };
+
+  const handleUploadRedirect = () => {
+    if (selectedFile) {
+      navigate("/dashboard/analyze", { state: { file: selectedFile, autoStart: true } });
+    }
+  };
+  const [isAddingCompany, setIsAddingCompany] = useState(false);
+  const [companySearchQuery, setCompanySearchQuery] = useState("");
+  const [quickAccessSearchResults, setQuickAccessSearchResults] = useState<any[]>([]);
+  const [loadingQuickAccessSearch, setLoadingQuickAccessSearch] = useState(false);
+
+  useEffect(() => {
+    if (!companySearchQuery) {
+      setQuickAccessSearchResults([]);
+      return;
+    }
+
+    const search = async () => {
+      setLoadingQuickAccessSearch(true);
+      try {
+        const results = await api.analysis.searchCompany(companySearchQuery);
+        setQuickAccessSearchResults(results || []);
+      } catch (err) {
+        console.error("Failed to search company for quick access:", err);
+      } finally {
+        setLoadingQuickAccessSearch(false);
+      }
+    };
+
+    const delay = setTimeout(search, 300);
+    return () => clearTimeout(delay);
+  }, [companySearchQuery]);
+
+  const { prices, subscribe } = useMarketData();
+
+  useEffect(() => {
+    if (quickAccessList.length > 0) {
+      const tickers = quickAccessList.map((item) => item.ticker);
+      subscribe(tickers);
+    }
+  }, [quickAccessList, subscribe]);
+
+  // Fetch initial prices from DB cache on mount
+  useEffect(() => {
+    const fetchInitialPrices = async () => {
+      if (quickAccessList.length === 0) return;
+      try {
+        const updatedList = await Promise.all(
+          quickAccessList.map(async (stock) => {
+            try {
+              const data = await api.stocks.getStockData(stock.ticker);
+              if (data) {
+                return {
+                  ...stock,
+                  name: data.name || stock.name,
+                  price: data.price !== undefined && data.price !== null ? data.price : stock.price,
+                  change: data.change_percent !== undefined && data.change_percent !== null ? data.change_percent : stock.change,
+                };
+              }
+            } catch (err) {
+              console.warn(`Failed to fetch cached price for ${stock.ticker}:`, err);
+            }
+            return stock;
+          })
+        );
+
+        // Check if anything actually changed to avoid unnecessary re-renders
+        let hasChanges = false;
+        for (let i = 0; i < updatedList.length; i++) {
+          if (
+            updatedList[i].price !== quickAccessList[i].price ||
+            updatedList[i].change !== quickAccessList[i].change ||
+            updatedList[i].name !== quickAccessList[i].name
+          ) {
+            hasChanges = true;
+            break;
+          }
+        }
+
+        if (hasChanges) {
+          setQuickAccessList(updatedList);
+          localStorage.setItem(userKey, JSON.stringify(updatedList));
+        }
+      } catch (error) {
+        console.error("Failed to fetch initial quick access prices:", error);
+      }
+    };
+
+    fetchInitialPrices();
+  }, []);
+
+  const handleRemoveCompany = (ticker: string) => {
+    const updated = quickAccessList.filter(
+      (item) => item.ticker.toUpperCase() !== ticker.toUpperCase()
+    );
+    setQuickAccessList(updated);
+    localStorage.setItem(userKey, JSON.stringify(updated));
+  };
 
   // Close search results when clicking outside
   useEffect(() => {
@@ -102,8 +285,36 @@ const Dashboard = () => {
     fetchReports();
   }, []);
 
+  const [analyzingTicker, setAnalyzingTicker] = useState<string | null>(null);
+
+  const handleAnalyzeStock = async (ticker: string, name: string) => {
+    console.log("[Dashboard] handleAnalyzeStock called for ticker:", ticker, "name:", name);
+    if (analyzingTicker) return;
+    setAnalyzingTicker(ticker);
+    try {
+      console.log("[Dashboard] Calling checkReportExists for:", ticker);
+      const res = await api.analysis.checkReportExists(ticker);
+      console.log("[Dashboard] checkReportExists response:", res);
+      if (res && res.exists && res.report_id) {
+        console.log("[Dashboard] Report exists! Navigating to report:", res.report_id);
+        navigate(`/dashboard/report/${res.report_id}`);
+      } else {
+        console.log("[Dashboard] Report does not exist. Generating report directly...");
+        const analysisRes = await api.analysis.analyzeFile(null, name, ticker);
+        console.log("[Dashboard] Report generated successfully! Navigating to report:", analysisRes.reportId);
+        navigate(`/dashboard/report/${analysisRes.reportId}`);
+      }
+    } catch (err) {
+      console.error("[Dashboard] Error checking or generating report:", err);
+      // Fallback in case of failure: go to analyze page
+      navigate(`/dashboard/analyze?ticker=${ticker}&name=${encodeURIComponent(name)}`);
+    } finally {
+      setAnalyzingTicker(null);
+    }
+  };
+
   const handleAnalyze = (company: any) => {
-    navigate(`/dashboard/analyze?ticker=${company.ticker}&name=${encodeURIComponent(company.name)}`);
+    handleAnalyzeStock(company.ticker, company.name);
     setIsSearchFocused(false);
   };
 
@@ -139,7 +350,11 @@ const Dashboard = () => {
               Search Company
             </h2>
             <div className="relative" ref={searchRef}>
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              {analyzingTicker ? (
+                <Loader2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary animate-spin" />
+              ) : (
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              )}
               <Input
                 type="text"
                 placeholder="Search by company name or ticker..."
@@ -150,6 +365,7 @@ const Dashboard = () => {
                 }}
                 onFocus={() => setIsSearchFocused(true)}
                 className="pl-10 h-11 bg-secondary/50 border-border rounded-xl focus-visible:ring-primary/20"
+                disabled={!!analyzingTicker}
               />
               
               {/* Search Results Dropdown */}
@@ -165,7 +381,7 @@ const Dashboard = () => {
               )}
             </div>
             <div className="flex flex-wrap gap-2 mt-4">
-              {["AAPL", "MSFT", "GOOGL", "AMZN"].map((ticker) => (
+              {["RELIANCE", "TCS", "INFY", "HDFCBANK", "AAPL", "MSFT"].map((ticker) => (
                 <button
                   key={ticker}
                   onClick={() => {
@@ -181,22 +397,73 @@ const Dashboard = () => {
           </div>
 
           {/* Upload */}
-          <div className="p-6 rounded-2xl bg-white border border-dashed border-border shadow-sm">
+          <div className="p-6 rounded-2xl bg-white border border-border shadow-sm">
             <h2 className="text-base font-bold text-foreground mb-4 flex items-center gap-2">
               <Upload className="w-4 h-4 text-primary" />
               Upload Financial Statements
             </h2>
-            <div className="border-2 border-dashed border-border rounded-xl p-8 text-center hover:border-primary/40 transition-colors cursor-pointer bg-accent/30">
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
-                <Plus className="w-5 h-5 text-primary" />
+            
+            {!selectedFile ? (
+              <div 
+                onDragEnter={handleDrag}
+                onDragLeave={handleDrag}
+                onDragOver={handleDrag}
+                onDrop={handleDrop}
+                onClick={() => fileInputRef.current?.click()}
+                className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors cursor-pointer bg-accent/30 ${
+                  dragActive ? "border-primary bg-accent/50" : "border-border hover:border-primary/40"
+                }`}
+              >
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
+                  <Plus className="w-5 h-5 text-primary" />
+                </div>
+                <p className="text-sm text-muted-foreground mb-1">
+                  Drag & drop files here or click to browse
+                </p>
+                <p className="text-xs text-muted-foreground/70">
+                  Supports PDF, Excel, CSV (max 25MB)
+                </p>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf,.xlsx,.xls,.csv"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
               </div>
-              <p className="text-sm text-muted-foreground mb-1">
-                Drag & drop files here or click to browse
-              </p>
-              <p className="text-xs text-muted-foreground/70">
-                Supports PDF, Excel, CSV (max 25MB)
-              </p>
-            </div>
+            ) : (
+              <div className="p-4 rounded-xl bg-secondary/50 border border-border">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                    <FileText className="w-5 h-5 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1 gap-2">
+                      <p className="font-medium text-foreground text-sm truncate">
+                        {selectedFile.name}
+                      </p>
+                      <button
+                        onClick={() => setSelectedFile(null)}
+                        className="p-1 hover:bg-destructive/10 rounded text-muted-foreground hover:text-destructive shrink-0"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-3">
+                      {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                    </p>
+                    <Button
+                      onClick={handleUploadRedirect}
+                      size="sm"
+                      className="bg-primary text-white hover:bg-primary/90 gap-1.5 text-xs h-8"
+                    >
+                      Upload & Analyze
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </motion.div>
 
@@ -293,10 +560,108 @@ const Dashboard = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.3 }}
           >
-            <h2 className="text-base font-bold text-foreground mb-4 flex items-center gap-2">
-              <FileText className="w-4 h-4 text-primary" />
-              Quick Access
-            </h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-base font-bold text-foreground flex items-center gap-2">
+                <FileText className="w-4 h-4 text-primary" />
+                Quick Access
+              </h2>
+              <Button
+                onClick={() => {
+                  setIsAddingCompany(!isAddingCompany);
+                  setCompanySearchQuery("");
+                }}
+                variant="ghost"
+                size="sm"
+                className="text-primary hover:text-primary/80 h-8 w-8 p-0 rounded-full"
+              >
+                <Plus className="w-4 h-4" />
+              </Button>
+            </div>
+
+            {isAddingCompany && (
+              <div className="mb-4 p-4 rounded-xl bg-secondary/50 border border-border">
+                <div className="flex items-center gap-2 mb-2">
+                  <Input
+                    type="text"
+                    placeholder="Search company or ticker..."
+                    value={companySearchQuery}
+                    onChange={(e) => setCompanySearchQuery(e.target.value)}
+                    className="h-9 bg-white"
+                  />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-9 text-xs"
+                    onClick={() => {
+                      setIsAddingCompany(false);
+                      setCompanySearchQuery("");
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+                {companySearchQuery && (
+                  <div className="mt-2 bg-white rounded-xl border border-border shadow-md max-h-[220px] overflow-y-auto p-1.5 z-50">
+                    {loadingQuickAccessSearch ? (
+                      <div className="flex items-center justify-center py-6 text-xs text-muted-foreground">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2"></div>
+                        Searching...
+                      </div>
+                    ) : quickAccessSearchResults.length === 0 ? (
+                      <div className="py-6 text-center text-xs text-muted-foreground">
+                        No companies found.
+                      </div>
+                    ) : (
+                      <div className="space-y-1">
+                        {quickAccessSearchResults.map((company) => {
+                          const isINR = company.ticker.endsWith(".NS") || company.ticker.endsWith(".BO");
+                          const currency = isINR ? "₹" : "$";
+                          const price = company.price || 0;
+                          
+                          return (
+                            <div
+                              key={company.ticker}
+                              onClick={() => {
+                                const newStock = {
+                                  ticker: company.ticker,
+                                  name: company.name || company.ticker,
+                                  price: price,
+                                  change: company.change_percent || 0
+                                };
+                                
+                                // Prevent duplicates
+                                if (!quickAccessList.some(item => item.ticker.toUpperCase() === company.ticker.toUpperCase())) {
+                                  const updated = [...quickAccessList, newStock];
+                                  setQuickAccessList(updated);
+                                  localStorage.setItem(userKey, JSON.stringify(updated));
+                                }
+                                setIsAddingCompany(false);
+                                setCompanySearchQuery("");
+                              }}
+                              className="flex items-center justify-between p-2 hover:bg-accent/40 rounded-lg cursor-pointer transition-colors"
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="px-2 py-0.5 rounded bg-primary/10 text-primary text-xs font-semibold shrink-0">
+                                  {company.ticker}
+                                </span>
+                                <span className="text-xs font-medium text-foreground truncate">
+                                  {company.name || company.ticker}
+                                </span>
+                              </div>
+                              {price > 0 && (
+                                <span className="text-xs text-muted-foreground shrink-0 pl-2">
+                                  {currency}{price.toFixed(2)}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="rounded-2xl bg-white border border-border overflow-hidden shadow-sm">
               <table className="w-full">
@@ -311,37 +676,77 @@ const Dashboard = () => {
                     <th className="text-right text-[11px] font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
                       Change
                     </th>
+                    <th className="w-10 py-3 pr-4"></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {watchlist.map((stock) => (
-                    <tr
-                      key={stock.ticker}
-                      className="border-b border-border/50 last:border-0 hover:bg-accent/30 transition-colors cursor-pointer"
-                    >
-                      <td className="py-3 px-4">
-                        <div>
-                          <p className="font-semibold text-foreground text-sm">
-                            {stock.ticker}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {stock.name}
-                          </p>
-                        </div>
-                      </td>
-                      <td className="py-3 px-4 text-right text-sm font-medium text-foreground">
-                        ${stock.price.toFixed(2)}
-                      </td>
-                      <td
-                        className={`py-3 px-4 text-right text-sm font-semibold ${
-                          stock.change >= 0 ? "text-primary" : "text-destructive"
-                        }`}
-                      >
-                        {stock.change >= 0 ? "+" : ""}
-                        {stock.change.toFixed(2)}%
+                  {quickAccessList.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="py-8 text-center text-xs text-muted-foreground">
+                        No companies added yet. Click the + icon above.
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    quickAccessList.map((stock) => {
+                      const live = prices.get(stock.ticker.toUpperCase());
+                      const currentPrice = live ? live.price : stock.price;
+                      const currentChange = live ? live.change_percent : stock.change;
+                      const isINR = stock.ticker.endsWith(".NS") || stock.ticker.endsWith(".BO");
+                      const currency = isINR ? "₹" : "$";
+                      
+                      const isRowAnalyzing = analyzingTicker === stock.ticker;
+
+                      return (
+                        <tr
+                          key={stock.ticker}
+                          onClick={() => handleAnalyzeStock(stock.ticker, stock.name)}
+                          className={`border-b border-border/50 last:border-0 hover:bg-accent/30 transition-colors cursor-pointer ${
+                            isRowAnalyzing ? "opacity-60 pointer-events-none bg-accent/20" : ""
+                          }`}
+                        >
+                          <td className="py-3 px-4">
+                            <div>
+                              <div className="flex items-center gap-1.5">
+                                <p className="font-semibold text-foreground text-sm">
+                                  {stock.ticker}
+                                </p>
+                                {isRowAnalyzing ? (
+                                  <Loader2 className="w-3.5 h-3.5 text-primary animate-spin" />
+                                ) : live ? (
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" title="Live" />
+                                ) : null}
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                {stock.name}
+                              </p>
+                            </div>
+                          </td>
+                          <td className="py-3 px-4 text-right text-sm font-medium text-foreground">
+                            {currency}{currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </td>
+                          <td
+                            className={`py-3 px-4 text-right text-sm font-semibold ${
+                              currentChange >= 0 ? "text-primary" : "text-destructive"
+                            }`}
+                          >
+                            {currentChange >= 0 ? "+" : ""}
+                            {currentChange.toFixed(2)}%
+                          </td>
+                          <td className="py-3 pr-4 pl-1 text-right">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRemoveCompany(stock.ticker);
+                              }}
+                              className="p-1 hover:bg-destructive/10 rounded text-muted-foreground hover:text-destructive transition-colors"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
                 </tbody>
               </table>
             </div>

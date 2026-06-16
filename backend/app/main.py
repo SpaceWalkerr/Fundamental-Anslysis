@@ -34,6 +34,42 @@ async def lifespan(app: FastAPI):
     await alert_checker.start()
     print("🔔 Price alert checker started")
     
+    # Start daily stock populator cron task (runs at 4:00 PM IST / 16:00 Asia/Kolkata every day)
+    import asyncio
+    import datetime
+    import pytz
+    from populate_stocks import run_population
+
+    async def schedule_daily_populator():
+        while True:
+            try:
+                ist = pytz.timezone("Asia/Kolkata")
+                now = datetime.datetime.now(ist)
+                
+                # Target time is 4:00 PM IST today
+                target = now.replace(hour=16, minute=0, second=0, microsecond=0)
+                if now >= target:
+                    # If already past 4:00 PM, target is 4:00 PM tomorrow
+                    target += datetime.timedelta(days=1)
+                
+                sleep_seconds = (target - now).total_seconds()
+                print(f"🕒 Daily Stock Populator cron scheduled. Next run: {target} IST (sleeping for {sleep_seconds:.1f}s)")
+                
+                await asyncio.sleep(sleep_seconds)
+                
+                print("⚡ Executing scheduled daily stock database population...")
+                admin_db = get_supabase_admin_client()
+                await run_population(admin_db)
+                print("✅ Daily stock database population complete.")
+            except asyncio.CancelledError:
+                break
+            except Exception as cron_err:
+                print(f"❌ Error in daily stock database populator cron: {cron_err}")
+                await asyncio.sleep(300)  # Wait 5 minutes before retrying on failure
+
+    populator_task = asyncio.create_task(schedule_daily_populator())
+    print("🕒 Daily Stock Populator background scheduler initialized")
+
     print(f"📊 Environment: {settings.ENVIRONMENT}")
     print(f"🔐 Debug mode: {settings.DEBUG}")
     
@@ -41,6 +77,12 @@ async def lifespan(app: FastAPI):
     
     # Shutdown
     print("👋 Shutting down FundaKaMental API...")
+    populator_task.cancel()
+    try:
+        await populator_task
+    except asyncio.CancelledError:
+        pass
+    
     await market_streamer.stop()
     await alert_checker.stop()
     print("✅ Background services stopped")

@@ -135,6 +135,7 @@ Please provide a detailed analysis in the following JSON format:
     {{"name": "ROE", "value": "22.3%", "benchmark": "Industry: 18.4%", "interpretation": "Strong return on equity"}},
     {{"name": "Current Ratio", "value": "1.8", "benchmark": "Healthy: >1.5", "interpretation": "Good liquidity"}},
     {{"name": "Debt-to-Equity", "value": "0.45", "benchmark": "Target: <1.0", "interpretation": "Conservative leverage"}},
+    {{"name": "ROE", "value": "22.3%", "benchmark": "Industry: 18.4%", "interpretation": "Strong return on equity"}},
     {{"name": "Profit Margin", "value": "18.5%", "benchmark": "Industry: 15.2%", "interpretation": "Above average profitability"}}
   ],
   "strengths": [
@@ -302,6 +303,7 @@ Provide a 2-3 sentence executive summary highlighting the most important finding
         parsed = self._parse_metrics_from_text(text)
         
         pe = parsed.get("p/e ratio") or parsed.get("pe_ratio") or 25.0
+        peg_ratio = parsed.get("peg ratio") or parsed.get("peg_ratio") or 1.2
         roe = parsed.get("roe (return on equity)") or parsed.get("roe") or 15.0
         current_ratio = parsed.get("current ratio") or parsed.get("current_ratio") or 1.5
         debt_to_equity = parsed.get("debt to equity") or parsed.get("debt_to_equity") or 0.8
@@ -325,10 +327,10 @@ Provide a 2-3 sentence executive summary highlighting the most important finding
         
         key_ratios = [
             {"name": "P/E Ratio", "value": f"{pe:.1f}x", "benchmark": "Industry Avg: 22.0x", "interpretation": "Premium" if pe > 25 else "Discounted" if pe < 15 else "Fair Value"},
+            {"name": "PEG Ratio", "value": f"{peg_ratio:.2f}", "benchmark": "Healthy: <1.0", "interpretation": "Undervalued" if peg_ratio < 1.0 else "Overvalued" if peg_ratio > 2.0 else "Fair Value"},
+            {"name": "Debt-to-Equity", "value": f"{debt_to_equity:.2f}", "benchmark": "Target: <1.0", "interpretation": "Low Leverage" if debt_to_equity < 0.5 else "Moderate Leverage" if debt_to_equity <= 1.2 else "High Leverage"},
             {"name": "ROE", "value": f"{roe:.1f}%", "benchmark": "Target: >15%", "interpretation": "High" if roe > 20 else "Healthy" if roe >= 10 else "Low"},
-            {"name": "Profit Margin", "value": f"{profit_margin:.1f}%", "benchmark": "Industry: 10%", "interpretation": "High Margin" if profit_margin > 15 else "Standard"},
-            {"name": "Current Ratio", "value": f"{current_ratio:.2f}", "benchmark": "Target: >1.5", "interpretation": "Good Liquidity" if current_ratio >= 1.5 else "Tight Liquidity"},
-            {"name": "Debt-to-Equity", "value": f"{debt_to_equity:.2f}", "benchmark": "Target: <1.0", "interpretation": "Low Leverage" if debt_to_equity < 0.5 else "Moderate Leverage" if debt_to_equity <= 1.2 else "High Leverage"}
+            {"name": "Profit Margin", "value": f"{profit_margin:.1f}%", "benchmark": "Industry Avg: 10%", "interpretation": "High Margin" if profit_margin > 15 else "Standard"}
         ]
         
         if "operating margin" in parsed or "operating_margin" in parsed:

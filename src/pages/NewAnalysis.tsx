@@ -1,5 +1,5 @@
-import { useState, useCallback, useEffect } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useState, useCallback, useEffect, useRef } from "react";
+import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import CompanySearchResults from "@/components/CompanySearchResults";
@@ -22,6 +22,7 @@ import { api } from "@/lib/api";
 
 const NewAnalysis = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const initialTicker = searchParams.get("ticker");
   const initialName = searchParams.get("name");
@@ -33,7 +34,28 @@ const NewAnalysis = () => {
       handleAnalyze(initialTicker, initialName || "");
     }
   }, [initialTicker]);
+
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const uploadSectionRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (location.state?.file) {
+      const file = location.state.file;
+      setSelectedFile(file);
+      
+      if (location.state?.autoStart) {
+        handleAnalyze(undefined, undefined, file);
+      }
+      
+      // Smooth scroll the upload block to the center of the viewport
+      setTimeout(() => {
+        uploadSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 100);
+      
+      // Clear history state so refresh doesn't trigger auto-upload again
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [dragActive, setDragActive] = useState(false);
@@ -70,12 +92,30 @@ const NewAnalysis = () => {
     }
   };
 
-  const handleAnalyze = async (tickerParam?: string, nameParam?: string) => {
+  const handleAnalyze = async (tickerParam?: string, nameParam?: string, fileParam?: File) => {
+    console.log("[NewAnalysis] handleAnalyze called with tickerParam:", tickerParam, "nameParam:", nameParam);
+    // Check if a completed report exists first if analyzing a ticker directly
+    if (tickerParam && !fileParam && !selectedFile) {
+      try {
+        console.log("[NewAnalysis] Calling checkReportExists for:", tickerParam);
+        const res = await api.analysis.checkReportExists(tickerParam);
+        console.log("[NewAnalysis] checkReportExists response:", res);
+        if (res && res.exists && res.report_id) {
+          console.log("[NewAnalysis] Report exists! Redirecting directly to report:", res.report_id);
+          navigate(`/dashboard/report/${res.report_id}`, { replace: true });
+          return;
+        }
+      } catch (err) {
+        console.error("[NewAnalysis] Error checking report existence:", err);
+      }
+    }
+
     setIsProcessing(true);
     setProgress(0);
     
+    const fileToUse = fileParam || selectedFile;
     const steps = [
-      { name: selectedFile && !tickerParam ? "Uploading file" : "Initializing request", status: "processing" as const, progress: 10 },
+      { name: fileToUse && !tickerParam ? "Uploading file" : "Initializing request", status: "processing" as const, progress: 10 },
       { name: "Fetching financial data", status: "pending" as const, progress: 0 },
       { name: "Analyzing fundamentals", status: "pending" as const, progress: 0 },
       { name: "Synthesizing investment case", status: "pending" as const, progress: 0 },
@@ -91,10 +131,10 @@ const NewAnalysis = () => {
       let finalCompany = nameParam || "";
 
       // 1. If we have a file selected and no ticker parameter passed
-      if (selectedFile && !tickerParam) {
-        const uploadRes = await api.analysis.uploadFile(selectedFile);
+      if (fileToUse && !tickerParam) {
+        const uploadRes = await api.analysis.uploadFile(fileToUse);
         fileId = uploadRes.file_id || uploadRes.id;
-        finalCompany = selectedFile.name;
+        finalCompany = fileToUse.name;
         
         setProcessingSteps(prev => {
           const newSteps = [...prev];
@@ -201,9 +241,9 @@ const NewAnalysis = () => {
           
           {/* Popular Tickers */}
           {!searchQuery && (
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <span className="text-sm text-muted-foreground">Popular:</span>
-              {["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "TSLA"].map((ticker) => (
+              {["RELIANCE", "TCS", "INFY", "HDFCBANK", "AAPL", "MSFT"].map((ticker) => (
                 <button
                   key={ticker}
                   onClick={() => setSearchQuery(ticker)}
@@ -242,6 +282,7 @@ const NewAnalysis = () => {
 
         {/* File Upload */}
         <motion.div
+          ref={uploadSectionRef}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.2 }}
@@ -316,7 +357,7 @@ const NewAnalysis = () => {
                   </p>
 
                   <Button
-                    onClick={handleAnalyze}
+                    onClick={() => handleAnalyze()}
                     className="bg-primary text-white hover:bg-primary/90 gap-2"
                   >
                     Start Analysis

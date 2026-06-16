@@ -4,13 +4,15 @@ Helper functions for fetching real-time market data
 """
 
 from typing import List, Dict
-import yfinance as yf
 from datetime import datetime
+from app.utils.stock_data_service import get_stock_data_service
+from app.db.database import get_supabase_admin_client
 
 
 async def get_market_data(tickers: List[str]) -> Dict:
     """
-    Fetch current market data for multiple tickers
+    Fetch current market data for multiple tickers using the centralized stock data service.
+    Falls back to cached database records if live fetching is rate-limited or fails.
     
     Args:
         tickers: List of stock ticker symbols
@@ -21,40 +23,74 @@ async def get_market_data(tickers: List[str]) -> Dict:
     result = {}
     
     try:
+        service = get_stock_data_service()
+        db = get_supabase_admin_client()
+        
         # Fetch data for all tickers
         for ticker in tickers:
+            ticker_upper = ticker.upper()
             try:
-                stock = yf.Ticker(ticker)
-                info = stock.info
+                # 1. Try browser-session backed live get_quote
+                quote = await service.get_quote(ticker_upper)
                 
-                result[ticker.upper()] = {
-                    "ticker": ticker.upper(),
-                    "price": info.get("currentPrice") or info.get("regularMarketPrice", 0),
-                    "change": info.get("regularMarketChange", 0),
-                    "change_pct": info.get("regularMarketChangePercent", 0),
-                    "volume": info.get("volume", 0),
-                    "market_cap": info.get("marketCap", 0),
-                    "name": info.get("longName") or info.get("shortName", ticker),
-                    "updated_at": datetime.now().isoformat()
-                }
-            except Exception as e:
-                # If individual ticker fails, add it with zero price
-                result[ticker.upper()] = {
-                    "ticker": ticker.upper(),
+                if quote and quote.get("price"):
+                    result[ticker_upper] = {
+                        "ticker": ticker_upper,
+                        "price": quote.get("price") or 0,
+                        "change": quote.get("change") or 0,
+                        "change_pct": quote.get("change_percent") or 0,
+                        "volume": quote.get("volume") or 0,
+                        "market_cap": quote.get("market_cap") or 0,
+                        "name": quote.get("name") or ticker_upper,
+                        "updated_at": datetime.now().isoformat()
+                    }
+                else:
+                    raise ValueError("Live quote unavailable or returned zero price")
+                    
+            except Exception as live_err:
+                # 2. Fall back to cached database stock data if rate-limited or fails
+                try:
+                    db_res = db.table('stocks').select('*').eq('ticker', ticker_upper).single().execute()
+                    if db_res.data:
+                        db_stock = db_res.data
+                        result[ticker_upper] = {
+                            "ticker": ticker_upper,
+                            "price": float(db_stock.get("price") or 0),
+                            "change": float(db_stock.get("change") or 0),
+                            "change_pct": float(db_stock.get("change_percent") or 0),
+                            "volume": int(db_stock.get("volume") or 0),
+                            "market_cap": int(db_stock.get("market_cap") or 0),
+                            "name": db_stock.get("name") or ticker_upper,
+                            "updated_at": db_stock.get("last_updated") or datetime.now().isoformat(),
+                            "is_cached_fallback": True
+                        }
+                        continue
+                except Exception as db_err:
+                    pass
+                
+                # 3. Last resort fallback with zero values if DB cache is also empty
+                result[ticker_upper] = {
+                    "ticker": ticker_upper,
                     "price": 0,
-                    "error": str(e)
+                    "change": 0,
+                    "change_pct": 0,
+                    "volume": 0,
+                    "market_cap": 0,
+                    "name": ticker_upper,
+                    "updated_at": datetime.now().isoformat(),
+                    "error": str(live_err)
                 }
         
         return result
         
     except Exception as e:
-        # Return empty dict on complete failure
         return {}
 
 
 async def get_stock_price(ticker: str) -> float:
     """
-    Get current price for a single ticker
+    Get current price for a single ticker.
+    Falls back to cached database records if live fetching is rate-limited or fails.
     
     Args:
         ticker: Stock ticker symbol
@@ -62,9 +98,24 @@ async def get_stock_price(ticker: str) -> float:
     Returns:
         Current stock price
     """
+    ticker_upper = ticker.upper()
     try:
-        stock = yf.Ticker(ticker)
-        info = stock.info
-        return info.get("currentPrice") or info.get("regularMarketPrice", 0)
-    except:
-        return 0
+        # 1. Try live get_quote
+        service = get_stock_data_service()
+        quote = await service.get_quote(ticker_upper)
+        if quote and quote.get("price"):
+            return float(quote.get("price"))
+            
+    except Exception:
+        pass
+        
+    # 2. Fallback to database
+    try:
+        db = get_supabase_admin_client()
+        db_res = db.table('stocks').select('price').eq('ticker', ticker_upper).single().execute()
+        if db_res.data and db_res.data.get('price'):
+            return float(db_res.data['price'])
+    except Exception:
+        pass
+        
+    return 0
