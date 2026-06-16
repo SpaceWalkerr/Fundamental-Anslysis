@@ -114,26 +114,21 @@ async def search_companies(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Query must be at least 1 character"
         )
-    
-    # Get stock data service
+
     stock_service = get_stock_data_service()
-    
-    # Search companies via API
+
     try:
         api_results = await stock_service.search_companies(q)
-        
-        # Also search local database for cached stocks with full metrics
+
         db_results = db.table('stocks')\
             .select('ticker, name, sector, price, change_percent, market_cap, pe_ratio, revenue_growth, profit_margin, currency')\
             .or_(f"ticker.ilike.%{q}%,name.ilike.%{q}%")\
             .eq('is_active', True)\
             .limit(10)\
             .execute()
-        
-        # Combine and deduplicate results
+
         combined = {}
-        
-        # 1. Add local database cached results (which have cached metrics)
+
         for stock in (db_results.data or []):
             ticker = stock.get('ticker')
             if ticker:
@@ -151,30 +146,27 @@ async def search_companies(
                     market_cap=_format_market_cap(stock.get('market_cap'), currency),
                     currency=currency
                 )
-        
-        # 2. Add API results (if they aren't already cached)
+
         tickers_to_query_quotes = []
         for result in api_results:
             ticker = result.get('ticker')
-            if ticker:
-                if ticker not in combined:
-                    currency = result.get('currency') or 'USD'
-                    combined[ticker] = CompanySearch(
-                        id=ticker,
-                        ticker=ticker,
-                        name=result.get('name', ''),
-                        sector=result.get('sector', '') or 'Equity',
-                        price=0.0,
-                        change_percent=0.0,
-                        pe_ratio=None,
-                        revenue_growth=None,
-                        profit_margin=None,
-                        market_cap="",
-                        currency=currency
-                    )
-                    tickers_to_query_quotes.append(ticker)
-        
-        # 3. Query quotes in parallel for tickers that are new (only from API and not in DB)
+            if ticker and ticker not in combined:
+                currency = result.get('currency') or 'USD'
+                combined[ticker] = CompanySearch(
+                    id=ticker,
+                    ticker=ticker,
+                    name=result.get('name', ''),
+                    sector=result.get('sector', '') or 'Equity',
+                    price=0.0,
+                    change_percent=0.0,
+                    pe_ratio=None,
+                    revenue_growth=None,
+                    profit_margin=None,
+                    market_cap="",
+                    currency=currency
+                )
+                tickers_to_query_quotes.append(ticker)
+
         if tickers_to_query_quotes:
             async def fetch_quote_info(t):
                 try:
@@ -192,17 +184,17 @@ async def search_companies(
                     combined[t].price = float(quote.get('price', 0) or 0)
                     combined[t].change_percent = float(quote.get('change_percent', 0) or 0)
                     combined[t].market_cap = _format_market_cap(quote.get('market_cap'), currency)
-                    
+
                     if quote.get('pe_ratio') is not None:
                         combined[t].pe_ratio = float(quote.get('pe_ratio') or 0)
                     if quote.get('revenue_growth') is not None:
                         combined[t].revenue_growth = float(quote.get('revenue_growth') or 0)
                     if quote.get('profit_margin') is not None:
                         combined[t].profit_margin = float(quote.get('profit_margin') or 0)
-        
+
         results = list(combined.values())[:10]
         return results
-        
+
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -214,17 +206,14 @@ async def search_companies(
 async def run_stock_screener(
     request: StockScreenerRequest,
     db: Client = Depends(get_db)
-    # TODO: Re-enable authentication: current_user: dict = Depends(get_current_active_user)
 ):
     """
     Run stock screener with custom filters
     Filter stocks based on financial metrics and fundamentals
     """
-    # Get stock screener
     screener = get_stock_screener(db)
-    
+
     try:
-        # Convert Pydantic models to dictionaries for the screener
         filters_dict = [
             {
                 "field": f.field,
@@ -233,16 +222,14 @@ async def run_stock_screener(
             }
             for f in request.filters
         ]
-        
-        # Run screening
+
         results = screener.screen_stocks(
             filters=filters_dict,
             sort_by=request.sort_by if hasattr(request, 'sort_by') else "market_cap",
             sort_order=request.sort_order if hasattr(request, 'sort_order') else "desc",
             limit=request.limit if hasattr(request, 'limit') else 100
         )
-        
-        # Convert to response format
+
         stock_results = []
         for stock in results.get('results', []):
             stock_results.append(StockScreenerResult(
@@ -256,13 +243,13 @@ async def run_stock_screener(
                 profit_margin=float(stock.get('profit_margin', 0) or 0),
                 match_score=int(stock.get('match_score', 0))
             ))
-        
+
         return StockScreenerResponse(
             total=results.get('total_count', 0),
             results=stock_results,
             filters_applied=request.filters
         )
-        
+
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -282,8 +269,7 @@ async def get_stock_details(
     Fetches from cache or API if needed
     """
     ticker = ticker.upper()
-    
-    # Try to get from database first
+
     try:
         result = db.table('stocks')\
             .select('*')\
@@ -291,39 +277,37 @@ async def get_stock_details(
             .eq('is_active', True)\
             .single()\
             .execute()
-        
+
         if result.data:
             stock = result.data
-            
-            # Check if data is stale (older than 1 hour)
+
             from datetime import datetime, timedelta
             last_updated = datetime.fromisoformat(stock['last_updated'].replace('Z', '+00:00'))
             if datetime.now(last_updated.tzinfo) - last_updated > timedelta(hours=1):
-                # Refresh in background
                 background_tasks.add_task(refresh_stock_data, ticker, db)
-            
+
             return stock
-    except:
+    except Exception:
         pass
-    
-    # Fetch from API
+
     stock_service = get_stock_data_service()
-    
+
     try:
-        # Get comprehensive data
         overview = await stock_service.get_company_overview(ticker)
-        
+
         if not overview:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Stock {ticker} not found"
             )
-        
-        # Save to database
-        db.table('stocks').upsert(overview).execute()
-        
+
+        db.table('stocks').upsert(
+            overview,
+            on_conflict='ticker'
+        ).execute()
+
         return overview
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -331,6 +315,48 @@ async def get_stock_details(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch stock details: {str(e)}"
         )
+
+
+@router.post("/inject")
+async def inject_stocks(
+    tickers: List[str],
+    db: Client = Depends(get_db)
+):
+    stock_service = get_stock_data_service()
+
+    results = []
+
+    for ticker in tickers:
+        try:
+            overview = await stock_service.get_company_overview(ticker)
+
+            if overview:
+                db.table('stocks').upsert(
+                    overview,
+                    on_conflict='ticker'
+                ).execute()
+
+                results.append({
+                    "ticker": ticker,
+                    "status": "success"
+                })
+            else:
+                results.append({
+                    "ticker": ticker,
+                    "status": "not_found"
+                })
+
+        except Exception as e:
+            results.append({
+                "ticker": ticker,
+                "status": "failed",
+                "error": str(e)
+            })
+
+    return {
+        "total": len(tickers),
+        "results": results
+    }
 
 
 @router.get("/screener/presets")
@@ -366,9 +392,9 @@ async def save_custom_screen(
             "filters": filters,
             "is_public": is_public
         }
-        
+
         result = db.table('saved_screens').insert(screen_data).execute()
-        
+
         return {
             "success": True,
             "screen_id": result.data[0]['id'] if result.data else None,
@@ -395,7 +421,7 @@ async def get_saved_screens(
             .eq('user_id', current_user['id'])\
             .order('created_at', desc=True)\
             .execute()
-        
+
         return {"saved_screens": result.data or []}
     except Exception as e:
         raise HTTPException(
@@ -423,15 +449,15 @@ async def add_to_watchlist(
             "notes": notes,
             "target_price": target_price
         }
-        
+
         db.table('watchlist_items').upsert(
             watchlist_data,
             on_conflict='watchlist_id,ticker'
         ).execute()
-        
+
         return {
             "success": True,
-            "message": f"{ticker} added to watchlist"
+            "message": f"{ticker.upper()} added to watchlist"
         }
     except Exception as e:
         raise HTTPException(
@@ -455,7 +481,7 @@ async def get_watchlist(
             .eq('watchlist_id', watchlist_id)\
             .order('added_at', desc=True)\
             .execute()
-        
+
         return {"watchlist": result.data or []}
     except Exception as e:
         raise HTTPException(
@@ -480,10 +506,10 @@ async def remove_from_watchlist(
             .eq('watchlist_id', watchlist_id)\
             .eq('ticker', ticker.upper())\
             .execute()
-        
+
         return {
             "success": True,
-            "message": f"{ticker} removed from watchlist"
+            "message": f"{ticker.upper()} removed from watchlist"
         }
     except Exception as e:
         raise HTTPException(
@@ -499,20 +525,23 @@ async def refresh_stock_data(ticker: str, db: Client):
     try:
         overview = await stock_service.get_company_overview(ticker)
         if overview:
-            db.table('stocks').upsert(overview).execute()
+            db.table('stocks').upsert(
+                overview,
+                on_conflict='ticker'
+            ).execute()
     except Exception as e:
         print(f"Error refreshing {ticker}: {e}")
 
 
 def _format_market_cap(market_cap, currency: str = "USD") -> str:
     """Format market cap to human-readable string"""
-    if not market_cap:
+    if market_cap is None or market_cap == "":
         return "N/A"
-    
+
     symbol = "₹" if currency == "INR" else "$"
-    
     try:
-        mc = float(market_cap)
+        cleaned = str(market_cap).replace(',', '').replace('$', '').replace('₹', '')
+        mc = float(cleaned)
         if mc >= 1_000_000_000_000:
             return f"{symbol}{mc/1_000_000_000_000:.1f}T"
         elif mc >= 1_000_000_000:
@@ -521,8 +550,11 @@ def _format_market_cap(market_cap, currency: str = "USD") -> str:
             return f"{symbol}{mc/1_000_000:.1f}M"
         else:
             return f"{symbol}{mc:,.0f}"
-    except:
-        return f"{symbol}{market_cap}" if not str(market_cap).startswith(("$", "₹")) else str(market_cap)
+    except Exception:
+        formatted = str(market_cap)
+        if formatted.startswith(("$", "₹")):
+            return formatted
+        return f"{symbol}{formatted}"
 
 
 def _get_or_create_default_watchlist(db: Client, user_id: str) -> str:
