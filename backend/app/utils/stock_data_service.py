@@ -96,7 +96,7 @@ class StockDataService:
         try:
             # Fetch data in executor to avoid blocking
             loop = asyncio.get_event_loop()
-            stock = await loop.run_in_executor(None, lambda: yf.Ticker(ticker, session=self.session))
+            stock = await loop.run_in_executor(None, lambda: yf.Ticker(ticker))
             info = await loop.run_in_executor(None, lambda: stock.info)
             
             if not info or 'symbol' not in info:
@@ -336,7 +336,7 @@ class StockDataService:
         """Fetch quote from Yahoo Finance (no key required)"""
         try:
             loop = asyncio.get_event_loop()
-            stock = await loop.run_in_executor(None, lambda: yf.Ticker(ticker, session=self.session))
+            stock = await loop.run_in_executor(None, lambda: yf.Ticker(ticker))
             info = await loop.run_in_executor(None, lambda: stock.info)
             
             if not info or ('regularMarketPrice' not in info and 'currentPrice' not in info):
