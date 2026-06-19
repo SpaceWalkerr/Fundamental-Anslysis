@@ -41,8 +41,8 @@ class Settings(BaseSettings):
     
     # Anthropic
     ANTHROPIC_API_KEY: str = ""
-    ANTHROPIC_MODEL: str = "claude-3-sonnet-20240229"
-    
+    ANTHROPIC_MODEL: str = "claude-opus-4-8"
+
     # Stock Data APIs
     ALPHA_VANTAGE_API_KEY: str = ""
     FMP_API_KEY: str = ""  # Financial Modeling Prep

@@ -199,17 +199,41 @@ const AnalysisReport = () => {
     setIsSending(true);
 
     try {
-      const response = await api.chat.sendMessage(id, userMessage);
+     const response = await api.chat.sendMessage(id, userMessage);
+
+let respContent = "No response received";
+      if (typeof response === "string") {
+        respContent = response;
+      } else if (response && typeof response === "object") {
+        if ('content' in response && typeof (response as any).content === 'string') {
+          respContent = (response as any).content;
+        } else if ('answer' in response && typeof (response as any).answer === 'string') {
+          respContent = (response as any).answer;
+        } else if ('message' in response) {
+          const msg = (response as any).message;
+          if (typeof msg === 'string') respContent = msg;
+          else if (msg && typeof msg === 'object' && 'content' in msg && typeof msg.content === 'string') respContent = msg.content;
+        }
+      }
+
+      const rawSources: any[] = [];
+      if (response && typeof response === 'object') {
+        if ('sources' in response && Array.isArray((response as any).sources)) rawSources.push(...(response as any).sources);
+        else if ('message' in response && (response as any).message && Array.isArray((response as any).message.sources)) rawSources.push(...(response as any).message.sources);
+      }
+
+      const respSources = rawSources.map((src: any) => ({
+        document: src?.document || "Source Document",
+        page: src?.page || 1,
+        excerpt: src?.excerpt || "",
+      }));
+
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          content: response.message,
-          sources: response.sources.map((src: any) => ({
-            document: src.document || "Source Document",
-            page: src.page || 1,
-            excerpt: src.excerpt || "",
-          })),
+          content: respContent,
+          sources: respSources,
         },
       ]);
     } catch (err: any) {

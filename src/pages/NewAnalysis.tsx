@@ -93,15 +93,11 @@ const NewAnalysis = () => {
   };
 
   const handleAnalyze = async (tickerParam?: string, nameParam?: string, fileParam?: File) => {
-    console.log("[NewAnalysis] handleAnalyze called with tickerParam:", tickerParam, "nameParam:", nameParam);
     // Check if a completed report exists first if analyzing a ticker directly
     if (tickerParam && !fileParam && !selectedFile) {
       try {
-        console.log("[NewAnalysis] Calling checkReportExists for:", tickerParam);
         const res = await api.analysis.checkReportExists(tickerParam);
-        console.log("[NewAnalysis] checkReportExists response:", res);
         if (res && res.exists && res.report_id) {
-          console.log("[NewAnalysis] Report exists! Redirecting directly to report:", res.report_id);
           navigate(`/dashboard/report/${res.report_id}`, { replace: true });
           return;
         }

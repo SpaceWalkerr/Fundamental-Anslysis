@@ -28,12 +28,31 @@ class AIAnalyzer:
         elif provider == "anthropic" and settings.ANTHROPIC_API_KEY:
             self.client = Anthropic(api_key=settings.ANTHROPIC_API_KEY)
             self.model = settings.ANTHROPIC_MODEL
+            self.model_candidates = self._get_anthropic_model_candidates()
+            print("MODEL =", self.model)
+            print("API KEY EXISTS =", bool(settings.ANTHROPIC_API_KEY))
         else:
             self.provider = None
     
     def is_available(self) -> bool:
         """Check if AI service is configured"""
         return self.provider is not None
+
+    def _get_anthropic_model_candidates(self) -> List[str]:
+        """Return ordered Anthropic model candidates for fallback."""
+        candidates = [
+            settings.ANTHROPIC_MODEL,
+            "claude-opus-4-8",
+            "claude-haiku-4-5-20251001",
+            "claude-sonnet-4-6",
+            "claude-fable-5",
+            "claude-3.5",
+            "claude-3.5-100k",
+            "claude-3.5-sonnet",
+            "claude-3.5-haiku",
+            "claude-3.5-instant"
+        ]
+        return [m for m in candidates if m]
     
     async def analyze_financial_document(
         self,
@@ -185,21 +204,32 @@ IMPORTANT:
         return response.choices[0].message.content
     
     async def _analyze_with_anthropic(self, prompt: str) -> str:
-        """Analyze using Anthropic Claude"""
-        response = self.client.messages.create(
-            model=self.model,
-            max_tokens=4000,
-            temperature=0.3,
-            system="You are an expert financial analyst specializing in fundamental analysis. Provide detailed, data-driven insights in JSON format.",
-            messages=[
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ]
-        )
-        
-        return response.content[0].text
+        """Analyze using Anthropic Claude with model fallback."""
+        last_exception = None
+        for model in getattr(self, 'model_candidates', [self.model]):
+            try:
+                self.model = model
+                print("TRYING ANTHROPIC MODEL =", self.model)
+                response = self.client.messages.create(
+                    model=self.model,
+                    max_tokens=4000,
+                    system="You are an expert financial analyst specializing in fundamental analysis. Provide detailed, data-driven insights in JSON format.",
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": prompt
+                        }
+                    ]
+                )
+                return response.content[0].text
+            except Exception as e:
+                last_exception = e
+                message = str(e).lower()
+                print("ANTHROPIC MODEL ERROR:", message)
+                if "model not found" in message or "unknown model" in message or "invalid model" in message:
+                    continue
+                raise
+        raise last_exception
     
     def _parse_analysis_response(self, response: str) -> Dict:
         """Parse AI response and extract structured data"""

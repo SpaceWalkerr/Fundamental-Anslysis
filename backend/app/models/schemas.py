@@ -135,6 +135,7 @@ class ChatSource(BaseModel):
     document: str
     page: int
     excerpt: str
+    report_id: Optional[str] = None
     similarity_score: float
 
 

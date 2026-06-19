@@ -4,10 +4,14 @@ Handles file upload and financial analysis
 """
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
 from supabase import Client
+import logging
+import traceback
 import uuid
 from datetime import datetime
 
 from app.db.database import get_db
+
+logger = logging.getLogger(__name__)
 from app.models.schemas import (
     FileUploadResponse,
     AnalysisRequest,
@@ -133,9 +137,12 @@ async def start_analysis(
     
     # Generate report ID
     report_id = str(uuid.uuid4())
+    report_inserted = False
     
     try:
-        # Create initial report record with PENDING status
+        logger.info(f"start_analysis called with report_id={report_id}, user_id={current_user['id']}, file_id={request.file_id}, company_ticker={request.company_ticker}, ticker={request.ticker}")
+
+        # Create initial report record payload with PENDING status
         report_record = {
             "id": report_id,
             "user_id": current_user['id'],
@@ -163,6 +170,7 @@ async def start_analysis(
                 )
             
             report_record['source_document_id'] = request.file_id
+            logger.info(f"Using existing source document {request.file_id} for report_id={report_id}")
             document_text = file_result.data.get('extracted_text', '')
             metadata = file_result.data.get('metadata') or {}
             company_name = company_name or metadata.get('company_name') or metadata.get('company') or 'Unknown Company'
@@ -192,8 +200,10 @@ async def start_analysis(
             except Exception:
                 pass
                 
-            if not company_data:
-                company_data = await stock_service.get_company_overview(ticker)
+                if not company_data:
+                    logger.info(f"Fetching company overview for ticker={ticker}")
+                    company_data = await stock_service.get_company_overview(ticker)
+                    logger.info(f"Fetched company overview for ticker={ticker}: {bool(company_data)}")
                 if company_data:
                     try:
                         db.table('stocks').upsert(company_data).execute()
@@ -248,8 +258,15 @@ Shares Outstanding: {company_data.get('shares_outstanding')}
             
             # Create virtual source document for RAG chat session
             try:
+                logger.info(f"Ensuring report exists before creating virtual source document for report_id={report_id}")
+                if not report_inserted:
+                    db.table('reports').insert(report_record).execute()
+                    report_inserted = True
+                    logger.info(f"Inserted initial report record report_id={report_id}")
+
                 processor = FileProcessor(db)
                 virtual_filename = f"{ticker}_profile.txt"
+                logger.info(f"Saving virtual source document for report_id={report_id}, filename={virtual_filename}")
                 document = await processor.save_document_record(
                     user_id=current_user['id'],
                     filename=virtual_filename,
@@ -261,11 +278,15 @@ Shares Outstanding: {company_data.get('shares_outstanding')}
                     report_id=report_id
                 )
                 report_record['source_document_id'] = document['id']
-                
+                logger.info(f"Saved virtual document id={document.get('id')} for report_id={report_id}")
+                logger.info(f"Created virtual source document id={document['id']} for report_id={report_id}")
+                db.table('reports').update({"source_document_id": document['id']}).eq('id', report_id).execute()
+
                 # Chunk and add to vector store
                 from app.utils.text_chunker import chunk_text
                 chunks = chunk_text(document_text)
                 if chunks:
+                    logger.info(f"Adding {len(chunks)} chunks to vector store for document_id={document.get('id')}")
                     processor.add_to_vector_store(
                         document_id=document['id'],
                         chunks=chunks,
@@ -273,17 +294,28 @@ Shares Outstanding: {company_data.get('shares_outstanding')}
                         filename=virtual_filename
                     )
             except Exception as e:
-                print(f"Error creating virtual document for RAG: {e}")
+                logger.error(f"Error creating virtual document for RAG: report_id={report_id}, error={e}")
+                if "does not exist" in str(e).lower():
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail=f"Report {report_id} does not exist"
+                    )
+                raise
         else:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Either file_id or company_ticker must be provided"
             )
         
-        # Insert initial report
-        db.table('reports').insert(report_record).execute()
-        
+        # Insert initial report if it was not already saved before source_documents creation
+        if not report_inserted:
+            logger.info(f"Inserting initial report record report_id={report_id}")
+            db.table('reports').insert(report_record).execute()
+            report_inserted = True
+            logger.info(f"Inserted initial report record report_id={report_id}")
+
         # Update status to PROCESSING
+        logger.info(f"Updating report status to PROCESSING for report_id={report_id}")
         db.table('reports')\
             .update({"status": ProcessingStatus.PROCESSING.value})\
             .eq('id', report_id)\
@@ -301,11 +333,15 @@ Shares Outstanding: {company_data.get('shares_outstanding')}
         #     )
         
         # Perform AI analysis (this may take a few seconds)
+        logger.info(f"Starting AI analysis for report_id={report_id}, ticker={ticker}")
         analysis_result = await analyzer.analyze_financial_document(
             extracted_text=document_text,
             company_name=company_name,
             ticker=ticker
         )
+        print("ANALYSIS RESULT:")
+        print(analysis_result)
+        logger.info(f"AI analysis completed for report_id={report_id}, success={analysis_result.get('success')}")
 
         if not analysis_result.get("success", False):
             raise HTTPException(
@@ -331,12 +367,14 @@ Shares Outstanding: {company_data.get('shares_outstanding')}
             "completed_at": datetime.utcnow().isoformat()
         }
         
+        logger.info(f"Updating report with analysis results for report_id={report_id}")
         db.table('reports')\
             .update(update_data)\
             .eq('id', report_id)\
             .execute()
         
         # Update user reports usage
+        logger.info(f"Incrementing reports_used for user_id={current_user['id']}")
         db.table('users')\
             .update({
                 "reports_used": current_user['reports_used'] + 1,
@@ -363,6 +401,13 @@ Shares Outstanding: {company_data.get('shares_outstanding')}
             pass
         raise
     except Exception as e:
+        # Print full traceback for debugging and re-raise so it surfaces in the server logs
+        print("\n" + "=" * 100)
+        print("ANALYZE ENDPOINT ERROR")
+        print(f"Error: {e}")
+        traceback.print_exc()
+        print("=" * 100 + "\n")
+
         # Update report to FAILED
         try:
             db.table('reports')\
@@ -372,13 +417,11 @@ Shares Outstanding: {company_data.get('shares_outstanding')}
                 })\
                 .eq('id', report_id)\
                 .execute()
-        except:
+        except Exception:
             pass
-        
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to complete analysis: {str(e)}"
-        )
+
+        # Re-raise to allow uvicorn to display full traceback
+        raise
 
 
 @router.get("/status/{report_id}", response_model=AnalysisStatusResponse)

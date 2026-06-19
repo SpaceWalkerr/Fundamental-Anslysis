@@ -223,10 +223,11 @@ export const chatApi = {
     });
 
     return {
-      message: data.response,
-      timestamp: data.timestamp || new Date().toISOString(),
-      sources: data.sources || [],
-    };
+  content: data.content || data.response || "",
+  role: data.role || "assistant",
+  timestamp: data.timestamp || new Date().toISOString(),
+  sources: data.sources || [],
+          };
   },
 
   getChatHistory: async (reportId: string) => {

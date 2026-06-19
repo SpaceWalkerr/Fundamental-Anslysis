@@ -288,20 +288,14 @@ const Dashboard = () => {
   const [analyzingTicker, setAnalyzingTicker] = useState<string | null>(null);
 
   const handleAnalyzeStock = async (ticker: string, name: string) => {
-    console.log("[Dashboard] handleAnalyzeStock called for ticker:", ticker, "name:", name);
     if (analyzingTicker) return;
     setAnalyzingTicker(ticker);
     try {
-      console.log("[Dashboard] Calling checkReportExists for:", ticker);
       const res = await api.analysis.checkReportExists(ticker);
-      console.log("[Dashboard] checkReportExists response:", res);
       if (res && res.exists && res.report_id) {
-        console.log("[Dashboard] Report exists! Navigating to report:", res.report_id);
         navigate(`/dashboard/report/${res.report_id}`);
       } else {
-        console.log("[Dashboard] Report does not exist. Generating report directly...");
         const analysisRes = await api.analysis.analyzeFile(null, name, ticker);
-        console.log("[Dashboard] Report generated successfully! Navigating to report:", analysisRes.reportId);
         navigate(`/dashboard/report/${analysisRes.reportId}`);
       }
     } catch (err) {
