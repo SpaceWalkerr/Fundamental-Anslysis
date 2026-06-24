@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { Button } from "@/components/ui/button";
@@ -83,6 +83,54 @@ const Portfolio = () => {
     transaction_date: new Date().toISOString().split("T")[0],
     notes: "",
   });
+
+  // Portfolio transaction ticker suggestions states
+  const [portfolioSuggestions, setPortfolioSuggestions] = useState<any[]>([]);
+  const [loadingPortfolioSuggestions, setLoadingPortfolioSuggestions] = useState(false);
+  const [showPortfolioSuggestions, setShowPortfolioSuggestions] = useState(false);
+  const portfolioSearchRef = useRef<HTMLDivElement>(null);
+
+  // Ticker search recommendation logic
+  useEffect(() => {
+    if (!transactionData.ticker) {
+      setPortfolioSuggestions([]);
+      return;
+    }
+
+    const search = async () => {
+      setLoadingPortfolioSuggestions(true);
+      try {
+        const results = await api.analysis.searchCompany(transactionData.ticker);
+        setPortfolioSuggestions(results || []);
+      } catch (err) {
+        console.error("Failed to search company for portfolio:", err);
+      } finally {
+        setLoadingPortfolioSuggestions(false);
+      }
+    };
+
+    const delay = setTimeout(search, 300);
+    return () => clearTimeout(delay);
+  }, [transactionData.ticker]);
+
+  // Close suggestions on click outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (portfolioSearchRef.current && !portfolioSearchRef.current.contains(event.target as Node)) {
+        setShowPortfolioSuggestions(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Reset suggestions states when dialog is closed
+  useEffect(() => {
+    if (!showTransactionDialog) {
+      setShowPortfolioSuggestions(false);
+      setPortfolioSuggestions([]);
+    }
+  }, [showTransactionDialog]);
 
   useEffect(() => {
     loadPortfolios();
@@ -265,16 +313,71 @@ const Portfolio = () => {
               </DialogHeader>
               <div className="space-y-4 mt-4">
                 <div className="grid grid-cols-2 gap-4">
-                  <div>
+                  <div className="relative" ref={portfolioSearchRef}>
                     <Label htmlFor="ticker">Ticker</Label>
                     <Input
                       id="ticker"
-                      placeholder="AAPL"
+                      placeholder="TCS"
                       value={transactionData.ticker}
-                      onChange={(e) =>
-                        setTransactionData({ ...transactionData, ticker: e.target.value })
-                      }
+                      onChange={(e) => {
+                        setTransactionData({ ...transactionData, ticker: e.target.value });
+                        setShowPortfolioSuggestions(true);
+                      }}
+                      onFocus={() => setShowPortfolioSuggestions(true)}
+                      autoComplete="off"
                     />
+
+                    {showPortfolioSuggestions && transactionData.ticker && (
+                      <div className="absolute left-0 right-0 mt-1 bg-white rounded-xl border border-border shadow-lg max-h-[200px] overflow-y-auto p-1.5 z-[100]">
+                        {loadingPortfolioSuggestions ? (
+                          <div className="flex items-center justify-center py-4 text-xs text-muted-foreground">
+                            <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-primary mr-2"></div>
+                            Searching...
+                          </div>
+                        ) : portfolioSuggestions.length === 0 ? (
+                          <div className="py-4 text-center text-xs text-muted-foreground">
+                            No companies found.
+                          </div>
+                        ) : (
+                          <div className="space-y-1">
+                            {portfolioSuggestions.map((company) => {
+                              const isINR = company.ticker.endsWith(".NS") || company.ticker.endsWith(".BO");
+                              const currency = isINR ? "₹" : "$";
+                              const price = company.price || 0;
+                              
+                              return (
+                                <div
+                                  key={company.ticker}
+                                  onClick={() => {
+                                    setTransactionData(prev => ({
+                                      ...prev,
+                                      ticker: company.ticker,
+                                      price_per_share: price > 0 ? price.toString() : prev.price_per_share
+                                    }));
+                                    setShowPortfolioSuggestions(false);
+                                  }}
+                                  className="flex items-center justify-between p-2 hover:bg-accent/40 rounded-lg cursor-pointer transition-colors"
+                                >
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <span className="px-2 py-0.5 rounded bg-primary/10 text-primary text-[10px] font-semibold shrink-0">
+                                      {company.ticker}
+                                    </span>
+                                    <span className="text-xs font-medium text-foreground truncate">
+                                      {company.name || company.ticker}
+                                    </span>
+                                  </div>
+                                  {price > 0 && (
+                                    <span className="text-[10px] text-muted-foreground shrink-0 pl-2">
+                                      {currency}{price.toFixed(2)}
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <div>
                     <Label htmlFor="type">Type</Label>

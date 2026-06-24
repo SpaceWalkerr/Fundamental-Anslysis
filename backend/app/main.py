@@ -13,6 +13,28 @@ from app.db.database import init_db
 from app.utils.market_data_streamer import get_market_streamer, get_alert_checker
 
 
+import logging
+import re
+
+class TokenMaskingFilter(logging.Filter):
+    def filter(self, record):
+        if isinstance(record.msg, str):
+            record.msg = re.sub(r'token=[^&\s"\']+', 'token=***[MASKED]***', record.msg)
+        if record.args:
+            new_args = []
+            for arg in record.args:
+                if isinstance(arg, str):
+                    new_args.append(re.sub(r'token=[^&\s"\']+', 'token=***[MASKED]***', arg))
+                else:
+                    new_args.append(arg)
+            record.args = tuple(new_args)
+        return True
+
+# Apply the masking filter to all uvicorn and app loggers
+for logger_name in ("uvicorn", "uvicorn.access", "uvicorn.error", "fastapi"):
+    logging.getLogger(logger_name).addFilter(TokenMaskingFilter())
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """

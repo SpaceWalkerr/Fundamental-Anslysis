@@ -56,6 +56,7 @@ class StockDataService:
         # Rate limiting
         self.last_api_call = None
         self.min_call_interval = 12  # Alpha Vantage free tier: 5 calls/min
+        self.yfinance_cooldown_until = None
     
     async def _rate_limit(self):
         """Enforce rate limiting between API calls"""
@@ -93,6 +94,10 @@ class StockDataService:
         Works for all global markets including US and Indian stocks.
         No API key required!
         """
+        if self.yfinance_cooldown_until and datetime.now() < self.yfinance_cooldown_until:
+            print(f"⚠️ yfinance is on rate-limit cooldown. Skipping overview request for {ticker}.")
+            return None
+
         try:
             # Fetch data in executor to avoid blocking
             loop = asyncio.get_event_loop()
@@ -101,6 +106,11 @@ class StockDataService:
             
             if not info or 'symbol' not in info:
                 return None
+            
+            price = info.get("currentPrice") or info.get("regularMarketPrice") or 0
+            prev_close = info.get("regularMarketPreviousClose") or info.get("previousClose") or price
+            change = info.get("regularMarketChange") or (price - prev_close)
+            change_percent = info.get("regularMarketChangePercent") or ((change / prev_close * 100) if prev_close else 0)
             
             # Parse and normalize data to match our schema
             return {
@@ -131,13 +141,17 @@ class StockDataService:
                 "week_52_low": info.get("fiftyTwoWeekLow"),
                 "avg_volume": info.get("averageVolume"),
                 "shares_outstanding": info.get("sharesOutstanding"),
-                "price": info.get("currentPrice") or info.get("regularMarketPrice"),
+                "price": price,
+                "change": change,
+                "change_percent": change_percent,
                 "last_updated": datetime.utcnow().isoformat()
             }
         except Exception as e:
             err_msg = str(e)
             print(f"Error fetching Yahoo Finance data for {ticker}: {err_msg}")
-            if "Too Many Requests" in err_msg or "Rate limited" in err_msg or "rate limit" in err_msg.lower():
+            if "Too Many Requests" in err_msg or "Rate limited" in err_msg or "rate limit" in err_msg.lower() or "RateLimitError" in type(e).__name__:
+                self.yfinance_cooldown_until = datetime.now() + timedelta(minutes=5)
+                print("🛑 Yahoo Finance rate limit hit. Activating 5-minute cooldown.")
                 raise YahooFinanceRateLimitError(f"Yahoo Finance rate limit hit on {ticker}: {err_msg}") from e
             return None
     
@@ -334,6 +348,9 @@ class StockDataService:
 
     async def _get_quote_yfinance(self, ticker: str) -> Optional[Dict]:
         """Fetch quote from Yahoo Finance (no key required)"""
+        if self.yfinance_cooldown_until and datetime.now() < self.yfinance_cooldown_until:
+            return None
+
         try:
             loop = asyncio.get_event_loop()
             stock = await loop.run_in_executor(None, lambda: yf.Ticker(ticker))
@@ -367,7 +384,9 @@ class StockDataService:
         except Exception as e:
             err_msg = str(e)
             print(f"Error fetching Yahoo Finance quote for {ticker}: {err_msg}")
-            if "Too Many Requests" in err_msg or "Rate limited" in err_msg or "rate limit" in err_msg.lower():
+            if "Too Many Requests" in err_msg or "Rate limited" in err_msg or "rate limit" in err_msg.lower() or "RateLimitError" in type(e).__name__:
+                self.yfinance_cooldown_until = datetime.now() + timedelta(minutes=5)
+                print("🛑 Yahoo Finance rate limit hit. Activating 5-minute cooldown.")
                 raise YahooFinanceRateLimitError(f"Yahoo Finance rate limit hit on {ticker}: {err_msg}") from e
             return None
     

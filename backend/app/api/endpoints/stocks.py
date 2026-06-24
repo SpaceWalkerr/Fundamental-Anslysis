@@ -187,25 +187,34 @@ async def search_companies(
             .execute()
 
         combined = {}
+        tickers_to_query_quotes = []
 
         # Load db results
         for stock in (db_results.data or []):
             ticker = stock.get('ticker')
             if ticker:
                 currency = stock.get('currency') or 'USD'
+                change_pct = stock.get('change_percent')
+                
+                # If change_percent is missing or 0 while price is positive, mark to fetch live
+                should_fetch_live = change_pct is None or (float(change_pct) == 0.0 and float(stock.get('price', 0) or 0) > 0)
+                
                 combined[ticker] = CompanySearch(
                     id=ticker,
                     ticker=ticker,
                     name=stock.get('name', ''),
                     sector=stock.get('sector', '') or 'Equity',
                     price=float(stock.get('price', 0) or 0),
-                    change_percent=float(stock.get('change_percent', 0) or 0),
+                    change_percent=float(change_pct or 0),
                     pe_ratio=float(stock.get('pe_ratio', 0) or 0) if stock.get('pe_ratio') is not None else None,
                     revenue_growth=float(stock.get('revenue_growth', 0) or 0) if stock.get('revenue_growth') is not None else None,
                     profit_margin=float(stock.get('profit_margin', 0) or 0) if stock.get('profit_margin') is not None else None,
                     market_cap=_format_market_cap(stock.get('market_cap'), currency),
                     currency=currency
                 )
+                
+                if should_fetch_live:
+                    tickers_to_query_quotes.append(ticker)
 
         # Batch check DB for any API results not in the combined list (to avoid fetching quotes from API if we already have them locally)
         missing_tickers = [
@@ -225,22 +234,28 @@ async def search_companies(
                     ticker = stock.get('ticker')
                     if ticker:
                         currency = stock.get('currency') or 'USD'
+                        change_pct = stock.get('change_percent')
+                        
+                        should_fetch_live = change_pct is None or (float(change_pct) == 0.0 and float(stock.get('price', 0) or 0) > 0)
+                        
                         combined[ticker] = CompanySearch(
                             id=ticker,
                             ticker=ticker,
                             name=stock.get('name', ''),
                             sector=stock.get('sector', '') or 'Equity',
                             price=float(stock.get('price', 0) or 0),
-                            change_percent=float(stock.get('change_percent', 0) or 0),
+                            change_percent=float(change_pct or 0),
                             pe_ratio=float(stock.get('pe_ratio', 0) or 0) if stock.get('pe_ratio') is not None else None,
                             revenue_growth=float(stock.get('revenue_growth', 0) or 0) if stock.get('revenue_growth') is not None else None,
                             profit_margin=float(stock.get('profit_margin', 0) or 0) if stock.get('profit_margin') is not None else None,
                             market_cap=_format_market_cap(stock.get('market_cap'), currency),
                             currency=currency
                         )
+                        
+                        if should_fetch_live and ticker not in tickers_to_query_quotes:
+                            tickers_to_query_quotes.append(ticker)
 
         # Build list of tickers that are still completely missing quote/price data
-        tickers_to_query_quotes = []
         for result in api_results:
             ticker = result.get('ticker')
             if ticker and ticker not in combined:
@@ -280,6 +295,17 @@ async def search_companies(
                         combined[t].revenue_growth = float(quote.get('revenue_growth') or 0)
                     if quote.get('profit_margin') is not None:
                         combined[t].profit_margin = float(quote.get('profit_margin') or 0)
+                        
+                    # Save to DB so subsequent requests don't hit the rate limit!
+                    try:
+                        from datetime import datetime
+                        db.table('stocks').update({
+                            "price": combined[t].price,
+                            "change_percent": combined[t].change_percent,
+                            "last_updated": datetime.utcnow().isoformat()
+                        }).eq('ticker', t).execute()
+                    except Exception as db_err:
+                        logger.warning(f"Failed to update stock price/change in DB for {t}: {db_err}")
 
         # Filter: Only keep India and US stocks (excluding options, ETFs, and cryptos)
         filtered_results = []

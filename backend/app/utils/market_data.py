@@ -36,14 +36,26 @@ async def get_market_data(tickers: List[str]) -> Dict:
                 if quote and quote.get("price"):
                     result[ticker_upper] = {
                         "ticker": ticker_upper,
-                        "price": quote.get("price") or 0,
-                        "change": quote.get("change") or 0,
-                        "change_pct": quote.get("change_percent") or 0,
-                        "volume": quote.get("volume") or 0,
-                        "market_cap": quote.get("market_cap") or 0,
+                        "price": float(quote.get("price") or 0),
+                        "change": float(quote.get("change") or 0),
+                        "change_pct": float(quote.get("change_percent") or 0),
+                        "volume": int(quote.get("volume") or 0),
+                        "market_cap": int(quote.get("market_cap") or 0),
                         "name": quote.get("name") or ticker_upper,
                         "updated_at": datetime.now().isoformat()
                     }
+                    # Update database cache with fresh quote
+                    try:
+                        db.table('stocks').update({
+                            "price": result[ticker_upper]["price"],
+                            "change": result[ticker_upper]["change"],
+                            "change_percent": result[ticker_upper]["change_pct"],
+                            "volume": result[ticker_upper]["volume"],
+                            "market_cap": result[ticker_upper]["market_cap"],
+                            "last_updated": datetime.utcnow().isoformat()
+                        }).eq('ticker', ticker_upper).execute()
+                    except Exception as db_err:
+                        pass
                 else:
                     raise ValueError("Live quote unavailable or returned zero price")
                     
@@ -104,7 +116,18 @@ async def get_stock_price(ticker: str) -> float:
         service = get_stock_data_service()
         quote = await service.get_quote(ticker_upper)
         if quote and quote.get("price"):
-            return float(quote.get("price"))
+            price = float(quote.get("price"))
+            try:
+                db = get_supabase_admin_client()
+                db.table('stocks').update({
+                    "price": price,
+                    "change": float(quote.get("change") or 0),
+                    "change_percent": float(quote.get("change_percent") or 0),
+                    "last_updated": datetime.utcnow().isoformat()
+                }).eq('ticker', ticker_upper).execute()
+            except Exception:
+                pass
+            return price
             
     except Exception:
         pass
