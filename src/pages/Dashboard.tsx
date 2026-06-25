@@ -47,102 +47,6 @@ const recentReports = [
   },
 ];
 
-const watchlist = [
-  { ticker: "AAPL", name: "Apple", price: 225.50, change: 2.35, sparkline: [220, 222, 221, 224, 223, 226, 225.5] },
-  { ticker: "MSFT", name: "Microsoft", price: 415.25, change: 1.82, sparkline: [405, 408, 412, 410, 414, 413, 415.25] },
-  { ticker: "GOOGL", name: "Alphabet", price: 178.90, change: -0.54, sparkline: [181, 180, 179, 178, 180, 179, 178.9] },
-  { ticker: "NVDA", name: "NVIDIA", price: 880.25, change: 5.12, sparkline: [830, 842, 850, 862, 855, 872, 880.25] },
-];
-
-/** Pure display helper — returns a greeting based on time of day */
-const getGreeting = () => {
-  const hour = new Date().getHours();
-  if (hour < 12) return "Good morning";
-  if (hour < 17) return "Good afternoon";
-  return "Good evening";
-};
-
-/** Pure display helper — returns today's date formatted */
-const getFormattedDate = () => {
-  return new Date().toLocaleDateString("en-US", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
-};
-
-/** Compact inline SVG sparkline — pure presentational component */
-const Sparkline = ({ points, positive }: { points: number[]; positive: boolean }) => {
-  const min = Math.min(...points);
-  const max = Math.max(...points);
-  const range = max - min === 0 ? 1 : max - min;
-  const height = 18;
-  const width = 56;
-  
-  const coords = points.map((p, i) => {
-    const x = (i / (points.length - 1)) * width;
-    const y = height - ((p - min) / range) * (height - 4) - 2;
-    return `${x},${y}`;
-  }).join(" ");
-
-  const color = positive ? "hsl(var(--primary))" : "hsl(var(--destructive))";
-
-  return (
-    <svg width={width} height={height} className="overflow-visible mx-auto">
-      <polyline
-        fill="none"
-        stroke={color}
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        points={coords}
-      />
-    </svg>
-  );
-};
-
-/** SVG score ring — pure presentational component */
-const ScoreRing = ({ score, trend }: { score: number; trend: string }) => {
-  const size = 44;
-  const strokeWidth = 3.5;
-  const radius = (size - strokeWidth) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const progress = (score / 10) * circumference;
-  const color = trend === "up" ? "hsl(var(--success))" : "hsl(var(--destructive))";
-
-  return (
-    <div className="score-ring" style={{ width: size, height: size }}>
-      <svg width={size} height={size}>
-        {/* Track */}
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke="hsl(var(--border))"
-          strokeWidth={strokeWidth}
-        />
-        {/* Progress */}
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke={color}
-          strokeWidth={strokeWidth}
-          strokeDasharray={`${progress} ${circumference}`}
-          strokeLinecap="round"
-          className="transition-all duration-700 ease-out"
-        />
-      </svg>
-      <span className={`score-label ${trend === "up" ? "text-primary" : "text-destructive"}`}>
-        {score}
-      </span>
-    </div>
-  );
-};
-
 const Dashboard = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchFocused, setIsSearchFocused] = useState(false);
@@ -167,36 +71,33 @@ const Dashboard = () => {
 
   return (
     <DashboardLayout>
-      <div className="p-4 sm:p-6 md:p-8 max-w-7xl mx-auto w-full min-w-0">
-        {/* Header — enhanced with time greeting and date */}
+      <div className="p-6 md:p-8 max-w-7xl mx-auto">
+        {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
-          className="mb-6 sm:mb-10"
+          className="mb-8"
         >
-          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground mb-1">
-            {getGreeting()}, John
+          <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-1">
+            Welcome back, {user?.name || "User"}
           </h1>
-          <p className="text-sm sm:text-base text-muted-foreground flex flex-wrap items-center gap-2">
-            <Clock className="w-3.5 h-3.5" />
-            {getFormattedDate()}
+          <p className="text-muted-foreground">
+            Ready to analyze some financials?
           </p>
         </motion.div>
 
-        {/* Search & Upload — differentiated cards */}
+        {/* Search & Upload — clean white cards */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.1 }}
-          className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-10"
+          className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8"
         >
-          {/* Search Company — primary CTA with gradient border + glow */}
-          <div className="p-4 sm:p-6 rounded-2xl bg-white border border-border shadow-sm gradient-border glow data-card min-w-0">
+          {/* Search Company */}
+          <div className="p-6 rounded-2xl bg-white border border-border shadow-sm">
             <h2 className="text-base font-bold text-foreground mb-4 flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center">
-                <Search className="w-3.5 h-3.5 text-primary" />
-              </div>
+              <Search className="w-4 h-4 text-primary" />
               Search Company
             </h2>
             <div className="relative" ref={searchRef}>
@@ -215,12 +116,13 @@ const Dashboard = () => {
               
               {/* Search Results Dropdown */}
               {isSearchFocused && searchQuery.length > 0 && (
-                <div className="absolute top-full left-0 right-0 mt-2 bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-border/80 z-50 max-h-[340px] overflow-y-auto p-2 scrollbar-thin">
-                  <CompanySearchResults
-                    query={searchQuery}
-                    onAnalyze={handleAnalyze}
-                    compact={true}
-                  />
+                <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-md shadow-lg border border-border z-50 max-h-[400px] overflow-y-auto">
+                  <div className="p-2">
+                    <CompanySearchResults
+                      query={searchQuery}
+                      onAnalyze={handleAnalyze}
+                    />
+                  </div>
                 </div>
               )}
             </div>
@@ -232,7 +134,7 @@ const Dashboard = () => {
                     setSearchQuery(ticker);
                     setIsSearchFocused(true);
                   }}
-                  className="ticker-chip bg-accent text-primary hover:bg-primary/10"
+                  className="px-3 py-1.5 rounded-full bg-accent text-xs font-medium text-primary hover:bg-primary/10 transition-colors"
                 >
                   {ticker}
                 </button>
@@ -240,30 +142,79 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {/* Upload — enhanced drop zone */}
-          <div className="p-4 sm:p-6 rounded-2xl bg-white border border-dashed border-border/80 shadow-sm data-card bg-gradient-card min-w-0">
+          {/* Upload */}
+          <div className="p-6 rounded-2xl bg-white border border-border shadow-sm">
             <h2 className="text-base font-bold text-foreground mb-4 flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center">
-                <Upload className="w-3.5 h-3.5 text-primary" />
-              </div>
+              <Upload className="w-4 h-4 text-primary" />
               Upload Financial Statements
             </h2>
-            <div className="border-2 border-dashed border-border rounded-xl p-5 sm:p-8 text-center hover:border-primary/40 transition-all duration-300 cursor-pointer bg-accent/20 hover:bg-accent/40">
-              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3 animate-gentle-bounce">
-                <Plus className="w-5 h-5 text-primary" />
+            
+            {!selectedFile ? (
+              <div 
+                onDragEnter={handleDrag}
+                onDragLeave={handleDrag}
+                onDragOver={handleDrag}
+                onDrop={handleDrop}
+                onClick={() => fileInputRef.current?.click()}
+                className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors cursor-pointer bg-accent/30 ${
+                  dragActive ? "border-primary bg-accent/50" : "border-border hover:border-primary/40"
+                }`}
+              >
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
+                  <Plus className="w-5 h-5 text-primary" />
+                </div>
+                <p className="text-sm text-muted-foreground mb-1">
+                  Drag & drop files here or click to browse
+                </p>
+                <p className="text-xs text-muted-foreground/70">
+                  Supports PDF, Excel, CSV (max 25MB)
+                </p>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf,.xlsx,.xls,.csv"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
               </div>
-              <p className="text-sm font-medium text-foreground mb-1">
-                Drag & drop files here or click to browse
-              </p>
-              <p className="text-xs text-muted-foreground/70">
-                Supports PDF, Excel, CSV (max 25MB)
-              </p>
-            </div>
+            ) : (
+              <div className="p-4 rounded-xl bg-secondary/50 border border-border">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                    <FileText className="w-5 h-5 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1 gap-2">
+                      <p className="font-medium text-foreground text-sm truncate">
+                        {selectedFile.name}
+                      </p>
+                      <button
+                        onClick={() => setSelectedFile(null)}
+                        className="p-1 hover:bg-destructive/10 rounded text-muted-foreground hover:text-destructive shrink-0"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-3">
+                      {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                    </p>
+                    <Button
+                      onClick={handleUploadRedirect}
+                      size="sm"
+                      className="bg-primary text-white hover:bg-primary/90 gap-1.5 text-xs h-8"
+                    >
+                      Upload & Analyze
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </motion.div>
 
         {/* Main Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Recent Reports */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -271,11 +222,9 @@ const Dashboard = () => {
             transition={{ duration: 0.4, delay: 0.2 }}
             className="lg:col-span-2"
           >
-            <div className="flex flex-wrap items-center justify-between gap-2 mb-5">
+            <div className="flex items-center justify-between mb-4">
               <h2 className="text-base font-bold text-foreground flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <Clock className="w-3.5 h-3.5 text-primary" />
-                </div>
+                <Clock className="w-4 h-4 text-primary" />
                 Recent Reports
               </h2>
               <Link to="/dashboard/history">
@@ -287,41 +236,67 @@ const Dashboard = () => {
             </div>
 
             <div className="space-y-3">
-              {recentReports.map((report, index) => (
-                <motion.div
-                  key={report.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.3, delay: 0.05 * index }}
-                >
-                  <Link
-                    to={`/dashboard/report/${report.id}`}
-                    className={`block p-4 sm:p-5 pl-5 sm:pl-6 report-card ${report.trend === "up" ? "trend-up" : "trend-down"}`}
-                  >
-                    <div className="flex items-start justify-between gap-3 mb-2">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2 mb-1">
-                          <h3 className="font-bold text-foreground text-sm truncate">
-                            {report.company}
-                          </h3>
-                          <span className="px-2 py-0.5 rounded-full bg-secondary text-xs text-muted-foreground font-medium">
-                            {report.ticker}
-                          </span>
-                        </div>
-                        <p className="text-xs text-muted-foreground flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          {report.date}
-                        </p>
-                      </div>
-                      {/* Score Ring */}
-                      <ScoreRing score={report.score} trend={report.trend} />
-                    </div>
-                    <p className="text-sm text-muted-foreground line-clamp-2">
-                      {report.summary}
-                    </p>
+              {loadingReports ? (
+                <div className="text-center py-12 bg-white rounded-2xl border border-border">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto text-primary"></div>
+                  <p className="mt-4 text-xs text-muted-foreground">Loading recent reports...</p>
+                </div>
+              ) : reports.length === 0 ? (
+                <div className="text-center py-12 bg-white rounded-2xl border border-border">
+                  <p className="text-muted-foreground text-sm mb-4">No reports generated yet.</p>
+                  <Link to="/dashboard/analyze">
+                    <Button size="sm" className="bg-primary text-white hover:bg-primary/90">Create Your First Analysis</Button>
                   </Link>
-                </motion.div>
-              ))}
+                </div>
+              ) : (
+                reports.map((report, index) => (
+                  <motion.div
+                    key={report.id}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.3, delay: 0.05 * index }}
+                  >
+                    <Link
+                      to={`/dashboard/report/${report.id}`}
+                      className="block p-5 rounded-2xl bg-white border border-border hover:border-primary/30 hover:shadow-md transition-all duration-300"
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <h3 className="font-bold text-foreground text-sm">
+                              {report.company}
+                            </h3>
+                            <span className="px-2 py-0.5 rounded-full bg-secondary text-xs text-muted-foreground font-medium">
+                              {report.ticker}
+                            </span>
+                          </div>
+                          <p className="text-xs text-muted-foreground flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            {report.date}
+                          </p>
+                        </div>
+                        <div
+                          className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${
+                            report.trend === "up"
+                              ? "bg-primary/10 text-primary"
+                              : "bg-destructive/10 text-destructive"
+                          }`}
+                        >
+                          {report.trend === "up" ? (
+                            <TrendingUp className="w-3.5 h-3.5" />
+                          ) : (
+                            <TrendingDown className="w-3.5 h-3.5" />
+                          )}
+                          {report.score}/10
+                        </div>
+                      </div>
+                      <p className="text-sm text-muted-foreground line-clamp-2">
+                        {report.summary}
+                      </p>
+                    </Link>
+                  </motion.div>
+                ))
+              )}
             </div>
           </motion.div>
 
@@ -331,23 +306,115 @@ const Dashboard = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.3 }}
           >
-            <h2 className="text-base font-bold text-foreground mb-5 flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center">
-                <FileText className="w-3.5 h-3.5 text-primary" />
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-base font-bold text-foreground flex items-center gap-2">
+                <FileText className="w-4 h-4 text-primary" />
+                Quick Access
+              </h2>
+              <Button
+                onClick={() => {
+                  setIsAddingCompany(!isAddingCompany);
+                  setCompanySearchQuery("");
+                }}
+                variant="ghost"
+                size="sm"
+                className="text-primary hover:text-primary/80 h-8 w-8 p-0 rounded-full"
+              >
+                <Plus className="w-4 h-4" />
+              </Button>
+            </div>
+
+            {isAddingCompany && (
+              <div className="mb-4 p-4 rounded-xl bg-secondary/50 border border-border">
+                <div className="flex items-center gap-2 mb-2">
+                  <Input
+                    type="text"
+                    placeholder="Search company or ticker..."
+                    value={companySearchQuery}
+                    onChange={(e) => setCompanySearchQuery(e.target.value)}
+                    className="h-9 bg-white"
+                  />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-9 text-xs"
+                    onClick={() => {
+                      setIsAddingCompany(false);
+                      setCompanySearchQuery("");
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+                {companySearchQuery && (
+                  <div className="mt-2 bg-white rounded-xl border border-border shadow-md max-h-[220px] overflow-y-auto p-1.5 z-50">
+                    {loadingQuickAccessSearch ? (
+                      <div className="flex items-center justify-center py-6 text-xs text-muted-foreground">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2"></div>
+                        Searching...
+                      </div>
+                    ) : quickAccessSearchResults.length === 0 ? (
+                      <div className="py-6 text-center text-xs text-muted-foreground">
+                        No companies found.
+                      </div>
+                    ) : (
+                      <div className="space-y-1">
+                        {quickAccessSearchResults.map((company) => {
+                          const isINR = company.ticker.endsWith(".NS") || company.ticker.endsWith(".BO");
+                          const currency = isINR ? "₹" : "$";
+                          const price = company.price || 0;
+                          
+                          return (
+                            <div
+                              key={company.ticker}
+                              onClick={() => {
+                                const newStock = {
+                                  ticker: company.ticker,
+                                  name: company.name || company.ticker,
+                                  price: price,
+                                  change: company.change_percent || 0
+                                };
+                                
+                                // Prevent duplicates
+                                if (!quickAccessList.some(item => item.ticker.toUpperCase() === company.ticker.toUpperCase())) {
+                                  const updated = [...quickAccessList, newStock];
+                                  setQuickAccessList(updated);
+                                  localStorage.setItem(userKey, JSON.stringify(updated));
+                                }
+                                setIsAddingCompany(false);
+                                setCompanySearchQuery("");
+                              }}
+                              className="flex items-center justify-between p-2 hover:bg-accent/40 rounded-lg cursor-pointer transition-colors"
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="px-2 py-0.5 rounded bg-primary/10 text-primary text-xs font-semibold shrink-0">
+                                  {company.ticker}
+                                </span>
+                                <span className="text-xs font-medium text-foreground truncate">
+                                  {company.name || company.ticker}
+                                </span>
+                              </div>
+                              {price > 0 && (
+                                <span className="text-xs text-muted-foreground shrink-0 pl-2">
+                                  {currency}{price.toFixed(2)}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
-              Quick Access
-            </h2>
+            )}
 
             <div className="rounded-2xl bg-white border border-border overflow-hidden shadow-sm">
-              <div className="overflow-x-auto -mx-px">
-              <table className="w-full min-w-[320px]">
+              <table className="w-full">
                 <thead>
-                  <tr className="border-b border-border bg-secondary/30">
+                  <tr className="border-b border-border">
                     <th className="text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
                       Stock
-                    </th>
-                    <th className="text-center text-[11px] font-semibold text-muted-foreground uppercase tracking-wider py-3 px-2">
-                      Trend
                     </th>
                     <th className="text-right text-[11px] font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
                       Price
@@ -358,45 +425,15 @@ const Dashboard = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {watchlist.map((stock) => (
-                    <tr
-                      key={stock.ticker}
-                      className="border-b border-border/50 last:border-0 hover:bg-accent/30 transition-colors duration-200 cursor-pointer group"
-                    >
-                      <td className="py-3 px-4">
-                        <div>
-                          <p className="font-semibold text-foreground text-sm group-hover:text-primary transition-colors">
-                            {stock.ticker}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {stock.name}
-                          </p>
-                        </div>
-                      </td>
-                      <td className="py-3 px-2 text-center align-middle">
-                        <Sparkline points={stock.sparkline} positive={stock.change >= 0} />
-                      </td>
-                      <td className="py-3 px-4 text-right text-sm font-medium text-foreground tabular-nums">
-                        <span className={stock.change >= 0 ? "price-flash-up font-mono" : "price-flash-down font-mono"}>
-                          ${stock.price.toFixed(2)}
-                        </span>
-                      </td>
-                      <td
-                        className={`py-3 px-4 text-right text-sm font-semibold tabular-nums ${
-                          stock.change >= 0 ? "text-primary" : "text-destructive"
-                        }`}
-                      >
-                        <span className="inline-flex items-center gap-1">
-                          <span className={`w-1.5 h-1.5 rounded-full ${stock.change >= 0 ? "bg-primary" : "bg-destructive"}`} />
-                          {stock.change >= 0 ? "+" : ""}
-                          {stock.change.toFixed(2)}%
-                        </span>
+                  {quickAccessList.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="py-8 text-center text-xs text-muted-foreground">
+                        No companies added yet. Click the + icon above.
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-              </div>
             </div>
           </motion.div>
         </div>
