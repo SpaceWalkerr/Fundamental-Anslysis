@@ -171,12 +171,12 @@ CREATE TRIGGER update_watchlist_items_timestamp
     EXECUTE FUNCTION update_watchlist_updated_at();
 
 -- Function: Ensure only one default watchlist per user
-CREATE OR REPLACE FUNCTION public.ensure_single_default_watchlist()
+CREATE OR REPLACE FUNCTION ensure_single_default_watchlist()
 RETURNS TRIGGER AS $$
 BEGIN
     IF NEW.is_default = true THEN
         -- Unset any existing default watchlists for this user
-        UPDATE public.watchlists
+        UPDATE watchlists
         SET is_default = false
         WHERE user_id = NEW.user_id
           AND id != NEW.id
@@ -184,21 +184,21 @@ BEGIN
     END IF;
     RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+$$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS enforce_single_default_watchlist ON watchlists;
 CREATE TRIGGER enforce_single_default_watchlist
     BEFORE INSERT OR UPDATE ON watchlists
     FOR EACH ROW
     WHEN (NEW.is_default = true)
-    EXECUTE FUNCTION public.ensure_single_default_watchlist();
+    EXECUTE FUNCTION ensure_single_default_watchlist();
 
 -- Function: Auto-create default watchlist for new users
-CREATE OR REPLACE FUNCTION public.create_default_watchlist()
+CREATE OR REPLACE FUNCTION create_default_watchlist()
 RETURNS TRIGGER AS $$
 BEGIN
     -- Create a default "My Watchlist" for new users
-    INSERT INTO public.watchlists (user_id, name, description, is_default, color)
+    INSERT INTO watchlists (user_id, name, description, is_default, color)
     VALUES (
         NEW.id,
         'My Watchlist',
@@ -208,15 +208,14 @@ BEGIN
     );
     RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql;
 
 -- Trigger to create default watchlist on user registration
 DROP TRIGGER IF EXISTS create_default_watchlist_on_user_creation ON auth.users;
-DROP TRIGGER IF EXISTS create_default_watchlist_on_user_creation ON public.users;
 CREATE TRIGGER create_default_watchlist_on_user_creation
-    AFTER INSERT ON public.users
+    AFTER INSERT ON auth.users
     FOR EACH ROW
-    EXECUTE FUNCTION public.create_default_watchlist();
+    EXECUTE FUNCTION create_default_watchlist();
 
 -- Function: Update item count when items are added/removed
 CREATE OR REPLACE FUNCTION update_watchlist_item_count()
@@ -262,8 +261,7 @@ CREATE TRIGGER set_added_price_on_insert
 -- ============================================================================
 
 -- View: Watchlist summary with item counts
-CREATE OR REPLACE VIEW watchlist_summary 
-WITH (security_invoker = true) AS
+CREATE OR REPLACE VIEW watchlist_summary AS
 SELECT 
     w.id,
     w.user_id,

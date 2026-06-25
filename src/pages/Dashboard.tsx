@@ -1,13 +1,10 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { useAuthStore } from "@/store/useAuthStore";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import CompanySearchResults from "@/components/CompanySearchResults";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { api } from "@/lib/api";
-import { useMarketData } from "@/hooks/use-market-data";
 import {
   Search,
   Upload,
@@ -18,8 +15,6 @@ import {
   ArrowRight,
   Plus,
   HelpCircle,
-  X,
-  Loader2,
 } from "lucide-react";
 
 const recentReports = [
@@ -149,200 +144,10 @@ const ScoreRing = ({ score, trend }: { score: number; trend: string }) => {
 };
 
 const Dashboard = () => {
-  const { user } = useAuthStore();
-  const userKey = user ? `quick_access_watchlist_${user.id}` : "quick_access_watchlist";
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchFocused, setIsSearchFocused] = useState(false);
-  const [reports, setReports] = useState<any[]>([]);
-  const [loadingReports, setLoadingReports] = useState(true);
   const searchRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
-
-  const [quickAccessList, setQuickAccessList] = useState<any[]>(() => {
-    const cached = localStorage.getItem(userKey);
-    if (cached) {
-      try {
-        const parsed = JSON.parse(cached);
-        const hasIndian = parsed.some((item: any) => item.ticker.toUpperCase().endsWith(".NS") || item.ticker.toUpperCase().endsWith(".BO"));
-        if (hasIndian) {
-          return parsed;
-        }
-      } catch (e) {
-        console.error("Failed to parse cached quick access list:", e);
-      }
-    }
-    const defaultList = [
-      { ticker: "RELIANCE.NS", name: "Reliance Industries", price: 2450.00, change: 1.25 },
-      { ticker: "TCS.NS", name: "Tata Consultancy Services", price: 3820.00, change: -0.45 },
-      { ticker: "INFY.NS", name: "Infosys", price: 1480.00, change: 2.10 },
-      { ticker: "AAPL", name: "Apple", price: 225.50, change: 2.35 },
-      { ticker: "MSFT", name: "Microsoft", price: 415.25, change: 1.82 },
-    ];
-    localStorage.setItem(userKey, JSON.stringify(defaultList));
-    return defaultList;
-  });
-
-  useEffect(() => {
-    const cached = localStorage.getItem(userKey);
-    if (cached) {
-      try {
-        const parsed = JSON.parse(cached);
-        const hasIndian = parsed.some((item: any) => item.ticker.toUpperCase().endsWith(".NS") || item.ticker.toUpperCase().endsWith(".BO"));
-        if (hasIndian) {
-          setQuickAccessList(parsed);
-          return;
-        }
-      } catch (e) {
-        console.error("Failed to parse cached quick access list:", e);
-      }
-    }
-    const defaultList = [
-      { ticker: "RELIANCE.NS", name: "Reliance Industries", price: 2450.00, change: 1.25 },
-      { ticker: "TCS.NS", name: "Tata Consultancy Services", price: 3820.00, change: -0.45 },
-      { ticker: "INFY.NS", name: "Infosys", price: 1480.00, change: 2.10 },
-      { ticker: "AAPL", name: "Apple", price: 225.50, change: 2.35 },
-      { ticker: "MSFT", name: "Microsoft", price: 415.25, change: 1.82 },
-    ];
-    localStorage.setItem(userKey, JSON.stringify(defaultList));
-    setQuickAccessList(defaultList);
-  }, [user?.id]);
-
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [dragActive, setDragActive] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleDrag = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.type === "dragenter" || e.type === "dragover") {
-      setDragActive(true);
-    } else if (e.type === "dragleave") {
-      setDragActive(false);
-    }
-  }, []);
-
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const file = e.dataTransfer.files[0];
-      if (file.size > 25 * 1024 * 1024) {
-        alert("File size exceeds 25MB limit.");
-        return;
-      }
-      setSelectedFile(file);
-    }
-  }, []);
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      if (file.size > 25 * 1024 * 1024) {
-        alert("File size exceeds 25MB limit.");
-        return;
-      }
-      setSelectedFile(file);
-    }
-  };
-
-  const handleUploadRedirect = () => {
-    if (selectedFile) {
-      navigate("/dashboard/analyze", { state: { file: selectedFile, autoStart: true } });
-    }
-  };
-  const [isAddingCompany, setIsAddingCompany] = useState(false);
-  const [companySearchQuery, setCompanySearchQuery] = useState("");
-  const [quickAccessSearchResults, setQuickAccessSearchResults] = useState<any[]>([]);
-  const [loadingQuickAccessSearch, setLoadingQuickAccessSearch] = useState(false);
-
-  useEffect(() => {
-    if (!companySearchQuery) {
-      setQuickAccessSearchResults([]);
-      return;
-    }
-
-    const search = async () => {
-      setLoadingQuickAccessSearch(true);
-      try {
-        const results = await api.analysis.searchCompany(companySearchQuery);
-        setQuickAccessSearchResults(results || []);
-      } catch (err) {
-        console.error("Failed to search company for quick access:", err);
-      } finally {
-        setLoadingQuickAccessSearch(false);
-      }
-    };
-
-    const delay = setTimeout(search, 300);
-    return () => clearTimeout(delay);
-  }, [companySearchQuery]);
-
-  const { prices, subscribe } = useMarketData();
-
-  useEffect(() => {
-    if (quickAccessList.length > 0) {
-      const tickers = quickAccessList.map((item) => item.ticker);
-      subscribe(tickers);
-    }
-  }, [quickAccessList, subscribe]);
-
-  // Fetch initial prices from DB cache on mount
-  useEffect(() => {
-    const fetchInitialPrices = async () => {
-      if (quickAccessList.length === 0) return;
-      try {
-        const updatedList = await Promise.all(
-          quickAccessList.map(async (stock) => {
-            try {
-              const data = await api.stocks.getStockData(stock.ticker);
-              if (data) {
-                return {
-                  ...stock,
-                  name: data.name || stock.name,
-                  price: data.price !== undefined && data.price !== null ? data.price : stock.price,
-                  change: data.change_percent !== undefined && data.change_percent !== null ? data.change_percent : stock.change,
-                };
-              }
-            } catch (err) {
-              console.warn(`Failed to fetch cached price for ${stock.ticker}:`, err);
-            }
-            return stock;
-          })
-        );
-
-        // Check if anything actually changed to avoid unnecessary re-renders
-        let hasChanges = false;
-        for (let i = 0; i < updatedList.length; i++) {
-          if (
-            updatedList[i].price !== quickAccessList[i].price ||
-            updatedList[i].change !== quickAccessList[i].change ||
-            updatedList[i].name !== quickAccessList[i].name
-          ) {
-            hasChanges = true;
-            break;
-          }
-        }
-
-        if (hasChanges) {
-          setQuickAccessList(updatedList);
-          localStorage.setItem(userKey, JSON.stringify(updatedList));
-        }
-      } catch (error) {
-        console.error("Failed to fetch initial quick access prices:", error);
-      }
-    };
-
-    fetchInitialPrices();
-  }, []);
-
-  const handleRemoveCompany = (ticker: string) => {
-    const updated = quickAccessList.filter(
-      (item) => item.ticker.toUpperCase() !== ticker.toUpperCase()
-    );
-    setQuickAccessList(updated);
-    localStorage.setItem(userKey, JSON.stringify(updated));
-  };
 
   // Close search results when clicking outside
   useEffect(() => {
@@ -355,56 +160,8 @@ const Dashboard = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Fetch reports list on mount
-  useEffect(() => {
-    const fetchReports = async () => {
-      try {
-        const response = await api.analysis.getReportsList(5, 0);
-        if (response && response.reports) {
-          const formatted = response.reports.map((r: any) => ({
-            id: r.id,
-            company: r.company,
-            ticker: r.ticker,
-            date: new Date(r.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }),
-            score: r.overall_score,
-            summary: r.summary || "Fundamental analysis report.",
-            trend: r.overall_score >= 7.5 ? "up" : "down"
-          }));
-          setReports(formatted);
-        }
-      } catch (err) {
-        console.error("Failed to load dashboard reports:", err);
-      } finally {
-        setLoadingReports(false);
-      }
-    };
-    fetchReports();
-  }, []);
-
-  const [analyzingTicker, setAnalyzingTicker] = useState<string | null>(null);
-
-  const handleAnalyzeStock = async (ticker: string, name: string) => {
-    if (analyzingTicker) return;
-    setAnalyzingTicker(ticker);
-    try {
-      const res = await api.analysis.checkReportExists(ticker);
-      if (res && res.exists && res.report_id) {
-        navigate(`/dashboard/report/${res.report_id}`);
-      } else {
-        const analysisRes = await api.analysis.analyzeFile(null, name, ticker);
-        navigate(`/dashboard/report/${analysisRes.reportId}`);
-      }
-    } catch (err) {
-      console.error("[Dashboard] Error checking or generating report:", err);
-      // Fallback in case of failure: go to analyze page
-      navigate(`/dashboard/analyze?ticker=${ticker}&name=${encodeURIComponent(name)}`);
-    } finally {
-      setAnalyzingTicker(null);
-    }
-  };
-
   const handleAnalyze = (company: any) => {
-    handleAnalyzeStock(company.ticker, company.name);
+    navigate(`/dashboard/report/1`); // Using the mock report ID 1 for now
     setIsSearchFocused(false);
   };
 
@@ -443,11 +200,7 @@ const Dashboard = () => {
               Search Company
             </h2>
             <div className="relative" ref={searchRef}>
-              {analyzingTicker ? (
-                <Loader2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary animate-spin" />
-              ) : (
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              )}
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 type="text"
                 placeholder="Search by company name or ticker..."
@@ -458,7 +211,6 @@ const Dashboard = () => {
                 }}
                 onFocus={() => setIsSearchFocused(true)}
                 className="pl-10 h-11 bg-secondary/50 border-border rounded-xl focus-visible:ring-primary/20"
-                disabled={!!analyzingTicker}
               />
               
               {/* Search Results Dropdown */}
@@ -473,7 +225,7 @@ const Dashboard = () => {
               )}
             </div>
             <div className="flex flex-wrap gap-2 mt-4">
-              {["RELIANCE", "TCS", "INFY", "HDFCBANK", "AAPL", "MSFT"].map((ticker) => (
+              {["AAPL", "MSFT", "GOOGL", "AMZN"].map((ticker) => (
                 <button
                   key={ticker}
                   onClick={() => {
@@ -603,7 +355,6 @@ const Dashboard = () => {
                     <th className="text-right text-[11px] font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4">
                       Change
                     </th>
-                    <th className="w-10 py-3 pr-4"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -642,67 +393,7 @@ const Dashboard = () => {
                         </span>
                       </td>
                     </tr>
-                  ) : (
-                    quickAccessList.map((stock) => {
-                      const live = prices.get(stock.ticker.toUpperCase());
-                      const currentPrice = live ? live.price : stock.price;
-                      const currentChange = live ? live.change_percent : stock.change;
-                      const isINR = stock.ticker.endsWith(".NS") || stock.ticker.endsWith(".BO");
-                      const currency = isINR ? "₹" : "$";
-                      
-                      const isRowAnalyzing = analyzingTicker === stock.ticker;
-
-                      return (
-                        <tr
-                          key={stock.ticker}
-                          onClick={() => handleAnalyzeStock(stock.ticker, stock.name)}
-                          className={`border-b border-border/50 last:border-0 hover:bg-accent/30 transition-colors cursor-pointer ${
-                            isRowAnalyzing ? "opacity-60 pointer-events-none bg-accent/20" : ""
-                          }`}
-                        >
-                          <td className="py-3 px-4">
-                            <div>
-                              <div className="flex items-center gap-1.5">
-                                <p className="font-semibold text-foreground text-sm">
-                                  {stock.ticker}
-                                </p>
-                                {isRowAnalyzing ? (
-                                  <Loader2 className="w-3.5 h-3.5 text-primary animate-spin" />
-                                ) : live ? (
-                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" title="Live" />
-                                ) : null}
-                              </div>
-                              <p className="text-xs text-muted-foreground">
-                                {stock.name}
-                              </p>
-                            </div>
-                          </td>
-                          <td className="py-3 px-4 text-right text-sm font-medium text-foreground">
-                            {currency}{currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </td>
-                          <td
-                            className={`py-3 px-4 text-right text-sm font-semibold ${
-                              currentChange >= 0 ? "text-primary" : "text-destructive"
-                            }`}
-                          >
-                            {currentChange >= 0 ? "+" : ""}
-                            {currentChange.toFixed(2)}%
-                          </td>
-                          <td className="py-3 pr-4 pl-1 text-right">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleRemoveCompany(stock.ticker);
-                              }}
-                              className="p-1 hover:bg-destructive/10 rounded text-muted-foreground hover:text-destructive transition-colors"
-                            >
-                              <X className="w-3.5 h-3.5" />
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
+                  ))}
                 </tbody>
               </table>
               </div>

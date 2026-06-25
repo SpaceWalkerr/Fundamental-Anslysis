@@ -24,7 +24,6 @@ ENV/
 env/
 *.egg-info/
 backend/uploads/*
-backend/chroma_db/
 backend/data/chroma/*
 !backend/uploads/.gitkeep
 !backend/data/chroma/.gitkeep

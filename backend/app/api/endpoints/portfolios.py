@@ -105,6 +105,7 @@ async def create_portfolio(
     Create a new portfolio
     """
     try:
+        # Create portfolio
         result = supabase.table("portfolios").insert({
             "user_id": current_user["id"],
             "name": portfolio.name,
@@ -112,38 +113,18 @@ async def create_portfolio(
             "currency": portfolio.currency,
             "is_default": portfolio.is_default,
         }).execute()
-
+        
         if not result.data:
-            raise HTTPException(
-                status_code=400,
-                detail="Failed to create portfolio"
-            )
-
+            raise HTTPException(status_code=400, detail="Failed to create portfolio")
+        
         return result.data[0]
-
+        
     except Exception as e:
-        import traceback
-
-        print("=" * 60)
-        print("PORTFOLIO CREATE ERROR")
-        traceback.print_exc()
-        print("=" * 60)
-
         if "unique_portfolio_name_per_user" in str(e):
-            raise HTTPException(
-                status_code=400,
-                detail="Portfolio with this name already exists"
-            )
+            raise HTTPException(status_code=400, detail="Portfolio with this name already exists")
+        raise HTTPException(status_code=500, detail=f"Error creating portfolio: {str(e)}")
 
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error creating portfolio: {str(e)}"
-        )
-    #except Exception as e:
-       # if "unique_portfolio_name_per_user" in str(e):
-        #   raise HTTPException(status_code=400, detail="Portfolio with this name already exists")
-         #  raise HTTPException(status_code=500, detail=f"Error creating portfolio: {str(e)}")
-    
+
 @router.get("/portfolios", response_model=List[PortfolioResponse])
 async def get_portfolios(
     current_user: dict = Depends(get_current_user),

@@ -1,5 +1,4 @@
-import { useState, useEffect } from "react";
-import { api } from "@/lib/api";
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
@@ -13,11 +12,10 @@ interface Company {
   sector: string;
   price: number;
   changePercent: number;
-  peRatio: number | null;
-  revenueGrowth: number | null;
-  profitMargin: number | null;
+  peRatio: number;
+  revenueGrowth: number;
+  profitMargin: number;
   marketCap: string;
-  currency?: string;
 }
 
 interface CompanySearchResultsProps {
@@ -27,6 +25,81 @@ interface CompanySearchResultsProps {
   compact?: boolean;
 }
 
+const mockCompanies: Company[] = [
+  {
+    id: "1",
+    name: "Apple Inc.",
+    ticker: "AAPL",
+    sector: "Technology",
+    price: 225.5,
+    changePercent: 2.5,
+    peRatio: 28.5,
+    revenueGrowth: 2.8,
+    profitMargin: 25.5,
+    marketCap: "$2.8T",
+  },
+  {
+    id: "2",
+    name: "Microsoft Corporation",
+    ticker: "MSFT",
+    sector: "Technology",
+    price: 415.25,
+    changePercent: 1.8,
+    peRatio: 28.5,
+    revenueGrowth: 16.2,
+    profitMargin: 35.8,
+    marketCap: "$3.1T",
+  },
+  {
+    id: "3",
+    name: "NVIDIA Corporation",
+    ticker: "NVDA",
+    sector: "Technology",
+    price: 880.25,
+    changePercent: 3.2,
+    peRatio: 65.2,
+    revenueGrowth: 126.0,
+    profitMargin: 52.1,
+    marketCap: "$2.2T",
+  },
+  {
+    id: "4",
+    name: "Alphabet Inc.",
+    ticker: "GOOGL",
+    sector: "Technology",
+    price: 178.9,
+    changePercent: -0.5,
+    peRatio: 22.5,
+    revenueGrowth: 11.0,
+    profitMargin: 24.0,
+    marketCap: "$2.2T",
+  },
+  {
+    id: "5",
+    name: "Amazon.com Inc.",
+    ticker: "AMZN",
+    sector: "Consumer Discretionary",
+    price: 195.8,
+    changePercent: 2.1,
+    peRatio: 42.3,
+    revenueGrowth: 10.5,
+    profitMargin: 3.2,
+    marketCap: "$2.0T",
+  },
+  {
+    id: "6",
+    name: "Tesla Inc.",
+    ticker: "TSLA",
+    sector: "Industrials",
+    price: 285.2,
+    changePercent: -1.2,
+    peRatio: 35.8,
+    revenueGrowth: 1.8,
+    profitMargin: 10.5,
+    marketCap: "$900B",
+  },
+];
+
 const CompanySearchResults = ({
   query,
   isLoading = false,
@@ -34,77 +107,13 @@ const CompanySearchResults = ({
   compact = false,
 }: CompanySearchResultsProps) => {
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
-  const [companies, setCompanies] = useState<Company[]>([]);
-  const [fetching, setFetching] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!query) {
-      setCompanies([]);
-      return;
-    }
-
-    const searchCompanies = async () => {
-      setFetching(true);
-      setError(null);
-      try {
-        const response = await api.analysis.searchCompany(query);
-        const mapped = response.map((item: any) => ({
-          id: item.id || item.ticker,
-          name: item.name || item.ticker,
-          ticker: item.ticker,
-          sector: item.sector || "Equity",
-          price: item.price || 0,
-          changePercent: item.change_percent || 0,
-          peRatio: item.pe_ratio !== null && item.pe_ratio !== undefined ? item.pe_ratio : null,
-          revenueGrowth: item.revenue_growth !== null && item.revenue_growth !== undefined ? item.revenue_growth : null,
-          profitMargin: item.profit_margin !== null && item.profit_margin !== undefined ? item.profit_margin : null,
-          marketCap: item.market_cap || "N/A",
-          currency: item.currency || "USD",
-        }));
-        const filtered = mapped.filter((item: any) => {
-          const tickerUpper = item.ticker.toUpperCase();
-          
-          const isIndian = tickerUpper.endsWith(".NS") || tickerUpper.endsWith(".BO");
-          let isUS = false;
-          if (!isIndian) {
-            if (tickerUpper.includes(".")) {
-              const parts = tickerUpper.split(".");
-              isUS = parts[parts.length - 1].length === 1;
-            } else {
-              const hasOptionPattern = /^[A-Z]{1,6}\d{6}[CP]\d{8}$/i.test(tickerUpper);
-              const isCrypto = tickerUpper.includes("-") && (tickerUpper.endsWith("-USD") || tickerUpper.endsWith("-EUR") || tickerUpper.endsWith("-INR"));
-              isUS = !hasOptionPattern && !isCrypto;
-            }
-          }
-          
-          const sectorUpper = (item.sector || "").toUpperCase();
-          const nameUpper = (item.name || "").toUpperCase();
-          const isOption = sectorUpper.includes("OPTION") || nameUpper.includes("OPTION");
-          const isETF = sectorUpper.includes("ETF") || sectorUpper.includes("EXCHANGE TRADED FUND") || nameUpper.includes(" ETF") || nameUpper.includes("TRUST");
-          
-          return (isIndian || isUS) && !isOption && !isETF;
-        });
-
-        const indianStocks = filtered.filter((item: any) => item.ticker.toUpperCase().endsWith(".NS") || item.ticker.toUpperCase().endsWith(".BO"));
-        const usStocks = filtered.filter((item: any) => !(item.ticker.toUpperCase().endsWith(".NS") || item.ticker.toUpperCase().endsWith(".BO")));
-        const sorted = [...indianStocks, ...usStocks];
-
-        setCompanies(sorted);
-      } catch (err: any) {
-        console.error("Error searching companies:", err);
-        setError("Could not retrieve search results.");
-      } finally {
-        setFetching(false);
-      }
-    };
-
-    const debounceTimer = setTimeout(() => {
-      searchCompanies();
-    }, 400);
-
-    return () => clearTimeout(debounceTimer);
-  }, [query]);
+  // Filter companies based on query
+  const filteredCompanies = mockCompanies.filter(
+    (company) =>
+      company.name.toLowerCase().includes(query.toLowerCase()) ||
+      company.ticker.toLowerCase().includes(query.toLowerCase())
+  );
 
   if (isLoading) {
     if (compact) {
@@ -145,15 +154,7 @@ const CompanySearchResults = ({
     );
   }
 
-  if (error) {
-    return (
-      <div className="flex flex-col items-center justify-center py-12">
-        <p className="text-destructive font-medium">{error}</p>
-      </div>
-    );
-  }
-
-  if (companies.length === 0) {
+  if (filteredCompanies.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
         <Search className="w-12 h-12 text-muted-foreground/30 mb-3" />
@@ -218,10 +219,10 @@ const CompanySearchResults = ({
       className="space-y-3"
     >
       <p className="text-sm text-muted-foreground">
-        Found {companies.length} results
+        Found {filteredCompanies.length} results
       </p>
 
-      {companies.map((company) => (
+      {filteredCompanies.map((company) => (
         <motion.div
           key={company.id}
           initial={{ opacity: 0, x: -10 }}
@@ -242,7 +243,7 @@ const CompanySearchResults = ({
             </div>
             <div className="sm:text-right flex sm:block items-center justify-between sm:justify-end gap-2 flex-shrink-0">
               <div className="text-lg font-bold text-foreground">
-                {company.currency === "INR" ? "₹" : "$"}{company.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                ${company.price.toFixed(2)}
               </div>
               <div
                 className={`flex items-center justify-end gap-1 text-xs font-medium ${
@@ -264,19 +265,19 @@ const CompanySearchResults = ({
             <div className="p-2 bg-background/50 rounded min-w-0">
               <p className="text-xs text-muted-foreground truncate">P/E</p>
               <p className="text-sm font-semibold text-foreground">
-                {company.peRatio !== null ? `${company.peRatio.toFixed(1)}x` : "N/A"}
+                {company.peRatio.toFixed(1)}x
               </p>
             </div>
             <div className="p-2 bg-background/50 rounded min-w-0">
               <p className="text-xs text-muted-foreground truncate">Rev Growth</p>
               <p className="text-sm font-semibold text-foreground">
-                {company.revenueGrowth !== null ? `${company.revenueGrowth.toFixed(1)}%` : "N/A"}
+                {company.revenueGrowth.toFixed(1)}%
               </p>
             </div>
             <div className="p-2 bg-background/50 rounded min-w-0">
               <p className="text-xs text-muted-foreground truncate">Margin</p>
               <p className="text-sm font-semibold text-foreground">
-                {company.profitMargin !== null ? `${company.profitMargin.toFixed(1)}%` : "N/A"}
+                {company.profitMargin.toFixed(1)}%
               </p>
             </div>
             <div className="p-2 bg-background/50 rounded min-w-0">

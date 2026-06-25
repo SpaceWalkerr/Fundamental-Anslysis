@@ -1,5 +1,5 @@
 // API Base URL
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 // Helper function to get auth token
 const getAuthToken = () => {
@@ -41,14 +41,10 @@ export const authApi = {
 
     // Store token
     localStorage.setItem('auth_token', data.access_token);
-    if (data.refresh_token) {
-      localStorage.setItem('refresh_token', data.refresh_token);
-    }
 
     return {
       user: data.user,
       token: data.access_token,
-      refresh_token: data.refresh_token,
     };
   },
 
@@ -58,22 +54,12 @@ export const authApi = {
       body: JSON.stringify({ name, email, password, confirm_password: password }),
     });
 
-    if (data.email_verification_required) {
-      return {
-        email_verification_required: true,
-        message: data.message,
-      };
-    }
-
-    // Store token if we received one (e.g. if email verification is disabled)
-    if (data.access_token) {
-      localStorage.setItem('auth_token', data.access_token);
-    }
+    // Store token
+    localStorage.setItem('auth_token', data.access_token);
 
     return {
       user: data.user,
       token: data.access_token,
-      email_verification_required: false,
     };
   },
 
@@ -103,12 +89,6 @@ export const authApi = {
       user: data,
     };
   },
-
-  deleteAccount: async () => {
-    return await fetchWithAuth('/api/auth/me', {
-      method: 'DELETE',
-    });
-  },
 };
 
 // Real API service for financial analysis
@@ -136,18 +116,18 @@ export const analysisApi = {
     return response.json();
   },
 
-  analyzeFile: async (fileId: string | null, company: string, ticker: string) => {
+  analyzeFile: async (fileId: string, company: string, ticker: string) => {
     const data = await fetchWithAuth('/api/analysis/analyze', {
       method: 'POST',
       body: JSON.stringify({ 
-        file_id: fileId || undefined, 
-        company_name: company,
-        company_ticker: ticker
+        file_id: fileId, 
+        company, 
+        ticker 
       }),
     });
     
     return {
-      reportId: data.report_id,
+      reportId: data.analysis_id,
       status: data.status,
       company,
       ticker,
@@ -162,23 +142,9 @@ export const analysisApi = {
     return await fetchWithAuth(`/api/reports/${reportId}`);
   },
 
-  checkReportExists: async (ticker: string) => {
-    return await fetchWithAuth(`/api/reports/check/${ticker}`);
-  },
-
-  getReportsList: async (limit: number = 20, offset: number = 0) => {
-    return await fetchWithAuth(`/api/reports/list?limit=${limit}&offset=${offset}`);
-  },
-
-  deleteReport: async (reportId: string) => {
-    return await fetchWithAuth(`/api/reports/${reportId}`, {
-      method: 'DELETE',
-    });
-  },
-
   searchCompany: async (query: string) => {
-    const data = await fetchWithAuth(`/api/stocks/search?q=${encodeURIComponent(query)}`);
-    return data || [];
+    const data = await fetchWithAuth(`/api/stocks/search?query=${encodeURIComponent(query)}`);
+    return data.results || [];
   },
 };
 
@@ -223,11 +189,10 @@ export const chatApi = {
     });
 
     return {
-  content: data.content || data.response || "",
-  role: data.role || "assistant",
-  timestamp: data.timestamp || new Date().toISOString(),
-  sources: data.sources || [],
-          };
+      message: data.response,
+      timestamp: data.timestamp || new Date().toISOString(),
+      sources: data.sources || [],
+    };
   },
 
   getChatHistory: async (reportId: string) => {

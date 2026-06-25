@@ -40,13 +40,10 @@ export function LivePrice({ ticker, showChange = true, className = '' }: LivePri
   const isPositive = priceData.change_percent >= 0;
   const isNeutral = priceData.change_percent === 0;
   
-  const isIndian = ticker.toUpperCase().endsWith('.NS') || ticker.toUpperCase().endsWith('.BO');
-  const symbol = isIndian ? '₹' : '$';
-
   return (
     <div className={`flex items-center gap-2 ${className}`}>
       <span className="text-lg font-semibold">
-        {symbol}{priceData.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        ${priceData.price.toFixed(2)}
       </span>
       
       {showChange && (
@@ -109,8 +106,6 @@ export function WatchlistLivePrices({ tickers }: WatchlistLivePricesProps) {
       <div className="space-y-3">
         {tickers.map((ticker) => {
           const priceData = prices.get(ticker.toUpperCase());
-          const isIndian = ticker.toUpperCase().endsWith('.NS') || ticker.toUpperCase().endsWith('.BO');
-          const symbol = isIndian ? '₹' : '$';
           
           return (
             <div key={ticker} className="flex items-center justify-between border-b pb-2 last:border-0">
@@ -127,7 +122,7 @@ export function WatchlistLivePrices({ tickers }: WatchlistLivePricesProps) {
                 {priceData ? (
                   <>
                     <div className="text-lg font-semibold">
-                      {symbol}{priceData.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      ${priceData.price.toFixed(2)}
                     </div>
                     <div className={`text-sm ${priceData.change_percent >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                       {priceData.change_percent >= 0 ? '+' : ''}{priceData.change.toFixed(2)} ({priceData.change_percent >= 0 ? '+' : ''}{priceData.change_percent.toFixed(2)}%)

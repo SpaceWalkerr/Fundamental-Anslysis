@@ -4,14 +4,12 @@ Handles file upload and financial analysis
 """
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
 from supabase import Client
-import logging
-import traceback
+from typing import Optional
 import uuid
 from datetime import datetime
+import os
 
 from app.db.database import get_db
-
-logger = logging.getLogger(__name__)
 from app.models.schemas import (
     FileUploadResponse,
     AnalysisRequest,
@@ -23,6 +21,7 @@ from app.core.security import get_current_active_user
 from app.core.config import settings
 from app.utils.file_processor import FileProcessor
 from app.utils.ai_analyzer import AIAnalyzer
+import asyncio
 
 
 router = APIRouter()
@@ -137,12 +136,9 @@ async def start_analysis(
     
     # Generate report ID
     report_id = str(uuid.uuid4())
-    report_inserted = False
     
     try:
-        logger.info(f"start_analysis called with report_id={report_id}, user_id={current_user['id']}, file_id={request.file_id}, company_ticker={request.company_ticker}, ticker={request.ticker}")
-
-        # Create initial report record payload with PENDING status
+        # Create initial report record with PENDING status
         report_record = {
             "id": report_id,
             "user_id": current_user['id'],
@@ -150,8 +146,7 @@ async def start_analysis(
         }
         
         document_text = ""
-        company_name = request.company_name or request.company or ""
-        ticker = (request.company_ticker or request.ticker or "").upper()
+        company_name = ""
         
         # Add file or company info
         if request.file_id:
@@ -170,11 +165,8 @@ async def start_analysis(
                 )
             
             report_record['source_document_id'] = request.file_id
-            logger.info(f"Using existing source document {request.file_id} for report_id={report_id}")
             document_text = file_result.data.get('extracted_text', '')
-            metadata = file_result.data.get('metadata') or {}
-            company_name = company_name or metadata.get('company_name') or metadata.get('company') or 'Unknown Company'
-            ticker = ticker or metadata.get('ticker') or 'N/A'
+            company_name = file_result.data.get('metadata', {}).get('company_name', 'Unknown Company')
             
             if not document_text:
                 raise HTTPException(
@@ -182,199 +174,52 @@ async def start_analysis(
                     detail="Document has no extracted text. Please reupload the file."
                 )
             
-        elif request.company_ticker or request.ticker or request.company_name or request.company:
-            ticker = (request.company_ticker or request.ticker or "").upper()
-            if not ticker:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Ticker symbol must be provided for company analysis"
-                )
-                
-            from app.utils.stock_data_service import get_stock_data_service
-            stock_service = get_stock_data_service()
-            company_data = None
-            try:
-                db_res = db.table('stocks').select('*').eq('ticker', ticker).single().execute()
-                if db_res.data:
-                    company_data = db_res.data
-            except Exception:
-                pass
-                
-                if not company_data:
-                    logger.info(f"Fetching company overview for ticker={ticker}")
-                    company_data = await stock_service.get_company_overview(ticker)
-                    logger.info(f"Fetched company overview for ticker={ticker}: {bool(company_data)}")
-                if company_data:
-                    try:
-                        db.table('stocks').upsert(company_data).execute()
-                    except Exception as e:
-                        print(f"Error caching stock data: {e}")
-            
-            if not company_data:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"Company details for ticker {ticker} could not be retrieved"
-                )
-                
-            company_name = company_data.get('name') or company_name or ticker
-            report_record['company'] = company_name
-            report_record['ticker'] = ticker
-            
-            document_text = f"""
-Company Profile:
-Ticker: {company_data.get('ticker')}
-Name: {company_data.get('name')}
-Sector: {company_data.get('sector')}
-Industry: {company_data.get('industry')}
-Country: {company_data.get('country')}
-Currency: {company_data.get('currency')}
-Exchange: {company_data.get('exchange')}
-
-Business Description:
-{company_data.get('description')}
-
-Key Fundamental Metrics & Ratios:
-Price: {company_data.get('price')}
-Market Cap: {company_data.get('market_cap')}
-P/E Ratio: {company_data.get('pe_ratio')}
-P/B Ratio: {company_data.get('pb_ratio')}
-PEG Ratio: {company_data.get('peg_ratio')}
-Dividend Yield: {company_data.get('dividend_yield')}%
-EPS: {company_data.get('eps')}
-Profit Margin: {company_data.get('profit_margin')}%
-Operating Margin: {company_data.get('operating_margin')}%
-ROE (Return on Equity): {company_data.get('roe')}%
-ROA (Return on Assets): {company_data.get('roa')}%
-Revenue Growth: {company_data.get('revenue_growth')}%
-Earnings Growth: {company_data.get('earnings_growth')}%
-Current Ratio: {company_data.get('current_ratio')}
-Debt to Equity: {company_data.get('debt_to_equity')}
-Beta: {company_data.get('beta')}
-52-Week High: {company_data.get('week_52_high')}
-52-Week Low: {company_data.get('week_52_low')}
-Average Volume: {company_data.get('avg_volume')}
-Shares Outstanding: {company_data.get('shares_outstanding')}
-"""
-            
-            # Create virtual source document for RAG chat session
-            try:
-                logger.info(f"Ensuring report exists before creating virtual source document for report_id={report_id}")
-                if not report_inserted:
-                    db.table('reports').insert(report_record).execute()
-                    report_inserted = True
-                    logger.info(f"Inserted initial report record report_id={report_id}")
-
-                processor = FileProcessor(db)
-                virtual_filename = f"{ticker}_profile.txt"
-                logger.info(f"Saving virtual source document for report_id={report_id}, filename={virtual_filename}")
-                document = await processor.save_document_record(
-                    user_id=current_user['id'],
-                    filename=virtual_filename,
-                    file_size=len(document_text),
-                    file_type=".txt",
-                    storage_path=f"{current_user['id']}/virtual/{ticker}_profile.txt",
-                    extracted_text=document_text,
-                    metadata={"company_name": company_name, "ticker": ticker},
-                    report_id=report_id
-                )
-                report_record['source_document_id'] = document['id']
-                logger.info(f"Saved virtual document id={document.get('id')} for report_id={report_id}")
-                logger.info(f"Created virtual source document id={document['id']} for report_id={report_id}")
-                db.table('reports').update({"source_document_id": document['id']}).eq('id', report_id).execute()
-
-                # Chunk and add to vector store
-                from app.utils.text_chunker import chunk_text
-                chunks = chunk_text(document_text)
-                if chunks:
-                    logger.info(f"Adding {len(chunks)} chunks to vector store for document_id={document.get('id')}")
-                    processor.add_to_vector_store(
-                        document_id=document['id'],
-                        chunks=chunks,
-                        user_id=current_user['id'],
-                        filename=virtual_filename
-                    )
-            except Exception as e:
-                logger.error(f"Error creating virtual document for RAG: report_id={report_id}, error={e}")
-                if "does not exist" in str(e).lower():
-                    raise HTTPException(
-                        status_code=status.HTTP_404_NOT_FOUND,
-                        detail=f"Report {report_id} does not exist"
-                    )
-                raise
+        elif request.company_ticker or request.company_name:
+            # For company ticker/name, we'd fetch from external API
+            # For now, raise not implemented
+            raise HTTPException(
+                status_code=status.HTTP_501_NOT_IMPLEMENTED,
+                detail="Company ticker analysis not yet implemented. Please upload a financial document."
+            )
         else:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Either file_id or company_ticker must be provided"
             )
         
-        # Insert initial report if it was not already saved before source_documents creation
-        if not report_inserted:
-            logger.info(f"Inserting initial report record report_id={report_id}")
-            db.table('reports').insert(report_record).execute()
-            report_inserted = True
-            logger.info(f"Inserted initial report record report_id={report_id}")
-
+        # Insert initial report
+        db.table('reports').insert(report_record).execute()
+        
         # Update status to PROCESSING
-        logger.info(f"Updating report status to PROCESSING for report_id={report_id}")
         db.table('reports')\
             .update({"status": ProcessingStatus.PROCESSING.value})\
             .eq('id', report_id)\
             .execute()
         
         # Initialize AI analyzer
-        provider = "openai" if settings.OPENAI_API_KEY else "anthropic"
-        analyzer = AIAnalyzer(provider=provider)
-
-        # Allow fallback to mock report generator when AI keys are not configured
-        # if not analyzer.is_available():
-        #     raise HTTPException(
-        #         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-        #         detail="AI service is not configured. Set OPENAI_API_KEY or ANTHROPIC_API_KEY."
-        #     )
+        analyzer = AIAnalyzer()
         
         # Perform AI analysis (this may take a few seconds)
-        logger.info(f"Starting AI analysis for report_id={report_id}, ticker={ticker}")
-        analysis_result = await analyzer.analyze_financial_document(
-            extracted_text=document_text,
+        analysis_result = await asyncio.to_thread(
+            analyzer.analyze_financial_document,
+            document_text=document_text,
             company_name=company_name,
-            ticker=ticker
+            use_openai=(settings.OPENAI_API_KEY is not None and settings.OPENAI_API_KEY != "")
         )
-        print("ANALYSIS RESULT:")
-        print(analysis_result)
-        logger.info(f"AI analysis completed for report_id={report_id}, success={analysis_result.get('success')}")
-
-        if not analysis_result.get("success", False):
-            raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY,
-                detail=analysis_result.get("error", "AI analysis failed")
-            )
         
         # Update report with analysis results
         update_data = {
             "status": ProcessingStatus.COMPLETED.value,
             "analysis_result": analysis_result,
-            "report_data": analysis_result,
-            "company": analysis_result.get("company", company_name),
-            "ticker": analysis_result.get("ticker", ticker),
-            "exchange": analysis_result.get("exchange", "N/A"),
-            "overall_score": analysis_result.get("overall_score"),
-            "summary": analysis_result.get("summary"),
-            "metrics": analysis_result.get("metrics"),
-            "key_ratios": analysis_result.get("key_ratios"),
-            "strengths": analysis_result.get("strengths"),
-            "red_flags": analysis_result.get("red_flags"),
-            "investment_assessment": analysis_result.get("investment_assessment"),
             "completed_at": datetime.utcnow().isoformat()
         }
         
-        logger.info(f"Updating report with analysis results for report_id={report_id}")
         db.table('reports')\
             .update(update_data)\
             .eq('id', report_id)\
             .execute()
         
         # Update user reports usage
-        logger.info(f"Incrementing reports_used for user_id={current_user['id']}")
         db.table('users')\
             .update({
                 "reports_used": current_user['reports_used'] + 1,
@@ -401,13 +246,6 @@ Shares Outstanding: {company_data.get('shares_outstanding')}
             pass
         raise
     except Exception as e:
-        # Print full traceback for debugging and re-raise so it surfaces in the server logs
-        print("\n" + "=" * 100)
-        print("ANALYZE ENDPOINT ERROR")
-        print(f"Error: {e}")
-        traceback.print_exc()
-        print("=" * 100 + "\n")
-
         # Update report to FAILED
         try:
             db.table('reports')\
@@ -417,11 +255,13 @@ Shares Outstanding: {company_data.get('shares_outstanding')}
                 })\
                 .eq('id', report_id)\
                 .execute()
-        except Exception:
+        except:
             pass
-
-        # Re-raise to allow uvicorn to display full traceback
-        raise
+        
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to complete analysis: {str(e)}"
+        )
 
 
 @router.get("/status/{report_id}", response_model=AnalysisStatusResponse)

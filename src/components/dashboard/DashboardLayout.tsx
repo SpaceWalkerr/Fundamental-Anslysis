@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
@@ -212,7 +212,7 @@ const DashboardLayout = ({ children }: SidebarProps) => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const isMobile = useIsMobile();
   const navigate = useNavigate();
-  const { logout, user, refreshProfile } = useAuthStore();
+  const { logout } = useAuthStore();
 
   const handleLogout = async () => {
     await logout();

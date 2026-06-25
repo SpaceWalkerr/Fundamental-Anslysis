@@ -34,12 +34,9 @@ export function useMarketData() {
     const token = localStorage.getItem('auth_token');
     if (!token) return;
     
-    const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
-    const wsProtocol = apiBaseUrl.startsWith('https') ? 'wss' : 'ws';
-    const wsHost = apiBaseUrl.replace(/^https?:\/\//, '');
-    const wsUrl = `${wsProtocol}://${wsHost}/api/ws/market-data?token=${token}`;
-    
-    const ws = new WebSocket(wsUrl);
+    const ws = new WebSocket(
+      `ws://localhost:8000/api/ws/market-data?token=${token}`
+    );
     
     ws.onopen = () => {
       console.log('✅ Market data WebSocket connected');

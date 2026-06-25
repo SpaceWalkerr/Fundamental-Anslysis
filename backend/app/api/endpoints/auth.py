@@ -4,7 +4,6 @@ Handles user registration, login, and profile management
 """
 from fastapi import APIRouter, Depends, HTTPException, status
 from supabase import Client
-from gotrue.errors import AuthApiError
 from datetime import timedelta
 
 from app.db.database import get_db
@@ -88,10 +87,6 @@ async def register(user_data: UserRegister, db: Client = Depends(get_db)):
                     "plan": profile.get("plan", "free"),
                     "reports_used": profile.get("reports_used", 0),
                     "reports_limit": profile.get("reports_limit", 5),
-                    "company": "",
-                    "email_notifications": True,
-                    "marketing_emails": False,
-                    "report_alerts": True,
                 }
             )
 
@@ -144,13 +139,11 @@ async def login(credentials: UserLogin, db: Client = Depends(get_db)):
             )
         
         user = user_result.data[0]
-        user_metadata = getattr(auth_response.user, 'user_metadata', {}) or {}
         
         return Token(
             access_token=auth_response.session.access_token,
             token_type="bearer",
             expires_in=auth_response.session.expires_in,
-            refresh_token=auth_response.session.refresh_token,
             user={
                 "id": user['id'],
                 "name": user['name'],
@@ -158,25 +151,9 @@ async def login(credentials: UserLogin, db: Client = Depends(get_db)):
                 "plan": user['plan'],
                 "reports_used": user['reports_used'],
                 "reports_limit": user['reports_limit'],
-                "company": user_metadata.get('company') or "",
-                "email_notifications": user_metadata.get('email_notifications') if user_metadata.get('email_notifications') is not None else True,
-                "marketing_emails": user_metadata.get('marketing_emails') if user_metadata.get('marketing_emails') is not None else False,
-                "report_alerts": user_metadata.get('report_alerts') if user_metadata.get('report_alerts') is not None else True,
             }
         )
         
-    except AuthApiError as e:
-        error_msg = str(e)
-        print(f"AuthApiError during login: {error_msg}")
-        if "confirm" in error_msg.lower() or "not confirmed" in error_msg.lower() or "verify" in error_msg.lower():
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email address is not verified. Please check your inbox and verify your email first.",
-            )
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password",
-        )
     except HTTPException:
         raise
     except Exception as e:
@@ -196,75 +173,6 @@ async def get_current_user_profile(
     Get current user profile
     """
     return UserResponse(**current_user)
-
-
-@router.patch("/me", response_model=UserResponse)
-async def update_profile(
-    profile_data: dict,
-    current_user: dict = Depends(get_current_active_user),
-    db: Client = Depends(get_db)
-):
-    """
-    Update current user profile
-    """
-    user_id = current_user['id']
-    name = profile_data.get('name')
-    avatar_url = profile_data.get('avatar_url')
-    
-    update_data = {}
-    if name is not None:
-        update_data['name'] = name
-    if avatar_url is not None:
-        update_data['avatar_url'] = avatar_url
-        
-    if not update_data:
-        return UserResponse(**current_user)
-        
-    try:
-        # Update public.users table
-        result = db.table('users').update(update_data).eq('id', user_id).execute()
-        
-        if not result.data or len(result.data) == 0:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to update user profile",
-            )
-            
-        updated_user = result.data[0]
-        return UserResponse(**updated_user)
-        
-    except Exception as e:
-        print(f"Profile update error: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to update user profile: {str(e)}",
-        )
-
-
-@router.delete("/me")
-async def delete_user_account(
-    current_user: dict = Depends(get_current_active_user),
-    db: Client = Depends(get_db)
-):
-    """
-    Permanently delete current user account from auth.users (using Admin client)
-    """
-    user_id = current_user['id']
-    try:
-        # Import admin client to perform user deletion
-        from app.db.database import get_supabase_admin_client
-        admin_client = get_supabase_admin_client()
-        
-        # Deleting a user from auth.users cascades to public tables
-        admin_client.auth.admin.delete_user(user_id)
-        
-        return {"message": "Account successfully deleted"}
-    except Exception as e:
-        print(f"Delete account error: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to delete account: {str(e)}",
-        )
 
 
 @router.post("/logout")

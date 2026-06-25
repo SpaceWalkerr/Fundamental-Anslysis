@@ -1,5 +1,5 @@
-import { useState, useCallback, useEffect, useRef } from "react";
-import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
+import { useState, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
@@ -22,44 +22,11 @@ import {
   Presentation,
 } from "lucide-react";
 import { AnalysisIllustration } from "@/components/brand/Illustrations";
-import { api } from "@/lib/api";
 
 const NewAnalysis = () => {
   const navigate = useNavigate();
-  const location = useLocation();
-  const [searchParams] = useSearchParams();
-  const initialTicker = searchParams.get("ticker");
-  const initialName = searchParams.get("name");
-  
   const [searchQuery, setSearchQuery] = useState("");
-
-  useEffect(() => {
-    if (initialTicker) {
-      handleAnalyze(initialTicker, initialName || "");
-    }
-  }, [initialTicker]);
-
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const uploadSectionRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (location.state?.file) {
-      const file = location.state.file;
-      setSelectedFile(file);
-      
-      if (location.state?.autoStart) {
-        handleAnalyze(undefined, undefined, file);
-      }
-      
-      // Smooth scroll the upload block to the center of the viewport
-      setTimeout(() => {
-        uploadSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-      }, 100);
-      
-      // Clear history state so refresh doesn't trigger auto-upload again
-      navigate(location.pathname, { replace: true, state: {} });
-    }
-  }, [location.state]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [dragActive, setDragActive] = useState(false);
@@ -131,107 +98,60 @@ const NewAnalysis = () => {
     }
   };
 
-  const handleAnalyze = async (tickerParam?: string, nameParam?: string, fileParam?: File) => {
-    // Check if a completed report exists first if analyzing a ticker directly
-    if (tickerParam && !fileParam && !selectedFile) {
-      try {
-        const res = await api.analysis.checkReportExists(tickerParam);
-        if (res && res.exists && res.report_id) {
-          navigate(`/dashboard/report/${res.report_id}`, { replace: true });
-          return;
-        }
-      } catch (err) {
-        console.error("[NewAnalysis] Error checking report existence:", err);
-      }
-    }
-
+  const handleAnalyze = () => {
     setIsProcessing(true);
     setProgress(0);
     
-    const fileToUse = fileParam || selectedFile;
-    const steps = [
-      { name: fileToUse && !tickerParam ? "Uploading file" : "Initializing request", status: "processing" as const, progress: 10 },
-      { name: "Fetching financial data", status: "pending" as const, progress: 0 },
-      { name: "Analyzing fundamentals", status: "pending" as const, progress: 0 },
-      { name: "Synthesizing investment case", status: "pending" as const, progress: 0 },
-      { name: "Generating report", status: "pending" as const, progress: 0 },
-    ];
-    setProcessingSteps(steps);
+    const stepDurations = [1500, 1800, 2000, 1500, 1200]; // ms for each step
+    let currentStep = 0;
+    let currentProgress = 0;
 
-    let progressInterval: NodeJS.Timeout | null = null;
-
-    try {
-      let fileId = null;
-      let finalTicker = tickerParam || "";
-      let finalCompany = nameParam || "";
-
-      // 1. If we have a file selected and no ticker parameter passed
-      if (fileToUse && !tickerParam) {
-        const uploadRes = await api.analysis.uploadFile(fileToUse);
-        fileId = uploadRes.file_id || uploadRes.id;
-        finalCompany = fileToUse.name;
-        
-        setProcessingSteps(prev => {
-          const newSteps = [...prev];
-          newSteps[0] = { ...newSteps[0], status: "completed", progress: 100 };
-          newSteps[1] = { ...newSteps[1], status: "processing", progress: 20 };
-          return newSteps;
-        });
-        setProgress(20);
-      } else {
-        setProcessingSteps(prev => {
-          const newSteps = [...prev];
-          newSteps[0] = { ...newSteps[0], status: "completed", progress: 100 };
-          newSteps[1] = { ...newSteps[1], status: "processing", progress: 20 };
-          return newSteps;
-        });
-        setProgress(20);
+    const animateStep = () => {
+      if (currentStep >= processingSteps.length) {
+        setTimeout(() => {
+          navigate("/dashboard/report/1");
+        }, 500);
+        return;
       }
 
-      // Set up a progress timer to simulate active stages
-      let simStep = 1;
-      progressInterval = setInterval(() => {
-        setProcessingSteps(prev => {
+      const stepDuration = stepDurations[currentStep];
+      const startProgress = currentProgress;
+      const startTime = Date.now();
+
+      setProcessingSteps((prev) => {
+        const newSteps = [...prev];
+        newSteps[currentStep].status = "processing";
+        return newSteps;
+      });
+
+      const progressInterval = setInterval(() => {
+        const elapsed = Date.now() - startTime;
+        const stepProgress = Math.min((elapsed / stepDuration) * 100, 100);
+        const totalProgress = (currentStep * 20) + (stepProgress / 5);
+
+        setProgress(totalProgress);
+        setProcessingSteps((prev) => {
           const newSteps = [...prev];
-          if (newSteps[simStep]) {
-            newSteps[simStep].progress = Math.min(newSteps[simStep].progress + 15, 90);
-            if (newSteps[simStep].progress >= 90 && simStep < newSteps.length - 1) {
-              newSteps[simStep].status = "completed";
-              newSteps[simStep].progress = 100;
-              simStep++;
-              newSteps[simStep].status = "processing";
-              newSteps[simStep].progress = 10;
-            }
-          }
+          newSteps[currentStep].progress = stepProgress;
           return newSteps;
         });
-        setProgress(p => Math.min(p + 3, 92));
-      }, 700);
 
-      // 2. Call backend analyze endpoint (blocks until completion)
-      const analysisRes = await api.analysis.analyzeFile(fileId, finalCompany, finalTicker);
-      
-      if (progressInterval) clearInterval(progressInterval);
+        if (elapsed >= stepDuration) {
+          clearInterval(progressInterval);
+          setProcessingSteps((prev) => {
+            const newSteps = [...prev];
+            newSteps[currentStep].status = "completed";
+            newSteps[currentStep].progress = 100;
+            return newSteps;
+          });
+          currentProgress = (currentStep + 1) * 20;
+          currentStep++;
+          setTimeout(animateStep, 300);
+        }
+      }, 50);
+    };
 
-      // Complete all steps
-      setProcessingSteps(prev => {
-        return prev.map(s => ({ ...s, status: "completed" as const, progress: 100 }));
-      });
-      setProgress(100);
-
-      setTimeout(() => {
-        navigate(`/dashboard/report/${analysisRes.reportId}`);
-      }, 500);
-
-    } catch (err: any) {
-      if (progressInterval) clearInterval(progressInterval);
-      console.error("Analysis execution failed:", err);
-      setIsProcessing(false);
-      setProcessingSteps(prev => {
-        return prev.map(s => s.status === "processing" ? { ...s, status: "failed" as const, progress: 0 } : s);
-      });
-      alert(err.message || "Financial analysis failed. Please try again.");
-    }
+    animateStep();
   };
 
   return (
@@ -301,7 +221,7 @@ const NewAnalysis = () => {
               <CompanySearchResults
                 query={searchQuery}
                 onAnalyze={(company) => {
-                  handleAnalyze(company.ticker, company.name);
+                  handleAnalyze();
                 }}
               />
             </div>
@@ -319,7 +239,6 @@ const NewAnalysis = () => {
 
         {/* File Upload — enhanced card with drag feedback */}
         <motion.div
-          ref={uploadSectionRef}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.2 }}
