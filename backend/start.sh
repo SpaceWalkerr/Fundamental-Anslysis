@@ -18,8 +18,8 @@ source venv/bin/activate
 echo "📥 Installing dependencies..."
 pip install -r requirements.txt --quiet
 
-# Check if .env file exists
-if [ ! -f ".env" ]; then
+# Check if .env file exists for local development. Hosted deployments inject env vars.
+if [ ! -f ".env" ] && [ -z "$SUPABASE_URL" ]; then
     echo "⚠️  No .env file found. Copying from .env.example..."
     cp .env.example .env
     echo "⚠️  Please edit .env with your credentials!"
@@ -31,7 +31,9 @@ mkdir -p uploads
 mkdir -p data/chroma
 
 # Start the server
-echo "✨ Starting FastAPI server on http://localhost:8080"
-echo "📚 API Docs: http://localhost:8080/api/docs"
+PORT="${PORT:-${API_PORT:-8080}}"
+
+echo "✨ Starting FastAPI server on http://localhost:${PORT}"
+echo "📚 API Docs: http://localhost:${PORT}/api/docs"
 echo ""
-python -m app.main
+python -m uvicorn app.main:app --host 0.0.0.0 --port "$PORT"

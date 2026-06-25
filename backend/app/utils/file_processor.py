@@ -3,9 +3,14 @@ File Processing Service
 Handles file upload, extraction, and processing
 """
 from typing import Dict, List, BinaryIO
+import logging
 import os
 from datetime import datetime
 from supabase import Client
+import pandas as pd
+from io import StringIO
+
+logger = logging.getLogger(__name__)
 
 from app.utils.pdf_extractor import extract_text_from_pdf, extract_tables_from_pdf
 from app.utils.excel_extractor import extract_data_from_excel, get_excel_summary
@@ -16,7 +21,7 @@ from app.utils.vector_store import get_vector_store
 class FileProcessor:
     """Process uploaded files and extract content"""
     
-    ALLOWED_EXTENSIONS = {'.pdf', '.xlsx', '.xls'}
+    ALLOWED_EXTENSIONS = {'.pdf', '.xlsx', '.xls', '.csv'}
     MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
     
     def __init__(self, supabase_client: Client):
@@ -151,6 +156,22 @@ class FileProcessor:
                     result["success"] = True
                 else:
                     result["error"] = extraction.get("error", "Excel extraction failed")
+
+            elif file_ext == '.csv':
+                csv_text = file_content.decode('utf-8', errors='replace')
+                dataframe = pd.read_csv(StringIO(csv_text))
+                extracted_text = dataframe.to_csv(index=False)
+
+                result["extracted_text"] = extracted_text
+                result["metadata"] = {
+                    "rows": int(dataframe.shape[0]),
+                    "columns": int(dataframe.shape[1]),
+                    "column_names": list(dataframe.columns),
+                    "char_count": len(extracted_text),
+                    "word_count": len(extracted_text.split()),
+                }
+                result["chunks"] = chunk_text(extracted_text)
+                result["success"] = True
             
             else:
                 result["error"] = f"Unsupported file type: {file_ext}"
@@ -181,13 +202,23 @@ class FileProcessor:
         """
         try:
             vector_store = get_vector_store()
-            
-            # Add metadata for filtering
+
+            # Try to include report_id from source_documents if present so
+            # vectors carry report linkage for accurate source citations.
+            try:
+                doc_res = self.db.table('source_documents').select('report_id').eq('id', document_id).single().execute()
+                report_id = doc_res.data.get('report_id') if doc_res and doc_res.data else None
+            except Exception:
+                report_id = None
+
+            # Add metadata for filtering and provenance
             metadata = {
                 "user_id": user_id,
-                "filename": filename
+                "filename": filename,
             }
-            
+            if report_id:
+                metadata['report_id'] = report_id
+
             return vector_store.add_document_chunks(
                 document_id=document_id,
                 chunks=chunks,
@@ -218,13 +249,23 @@ class FileProcessor:
         """
         try:
             vector_store = get_vector_store()
-            
-            # Add metadata for filtering
+
+            # Try to include report_id from source_documents if present so
+            # vectors carry report linkage for accurate source citations.
+            try:
+                doc_res = self.db.table('source_documents').select('report_id').eq('id', document_id).single().execute()
+                report_id = doc_res.data.get('report_id') if doc_res and doc_res.data else None
+            except Exception:
+                report_id = None
+
+            # Add metadata for filtering and provenance
             metadata = {
                 "user_id": user_id,
-                "filename": filename
+                "filename": filename,
             }
-            
+            if report_id:
+                metadata['report_id'] = report_id
+
             return vector_store.add_document_chunks(
                 document_id=document_id,
                 chunks=chunks,
@@ -240,7 +281,8 @@ class FileProcessor:
         content_types = {
             '.pdf': 'application/pdf',
             '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            '.xls': 'application/vnd.ms-excel'
+            '.xls': 'application/vnd.ms-excel',
+            '.csv': 'text/csv'
         }
         return content_types.get(file_ext.lower(), 'application/octet-stream')
     
@@ -262,6 +304,18 @@ class FileProcessor:
             Created document record
         """
         try:
+            if report_id:
+                # Verify referenced report exists before inserting a source document
+                report_check = self.db.table('reports')\
+                    .select('id')\
+                    .eq('id', report_id)\
+                    .single()\
+                    .execute()
+                if not report_check.data:
+                    logger.warning(f"Referenced report_id={report_id} does not exist before inserting source_document")
+                    raise ValueError(f"Referenced report_id={report_id} does not exist")
+                logger.info(f"Verified report exists for report_id={report_id} before inserting source_document")
+
             document_data = {
                 "user_id": user_id,
                 "report_id": report_id,
@@ -276,9 +330,13 @@ class FileProcessor:
             result = self.db.table('source_documents').insert(document_data).execute()
             
             if result.data:
+                logger.info(f"Inserted source_document for report_id={report_id}, document_id={result.data[0].get('id')}")
                 return result.data[0]
             else:
                 raise Exception("Failed to create document record")
         
+        except ValueError:
+            raise
         except Exception as e:
+            logger.error(f"Database error inserting source_document for report_id={report_id}: {e}")
             raise Exception(f"Database error: {str(e)}")

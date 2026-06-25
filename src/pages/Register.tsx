@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,7 @@ import Header from "@/components/landing/Header";
 
 const Register = () => {
   const navigate = useNavigate();
-  const { register, isLoading } = useAuthStore();
+  const { register, loginWithGoogle, isLoading } = useAuthStore();
   const { toast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
@@ -24,12 +24,22 @@ const Register = () => {
     e.preventDefault();
 
     try {
-      await register(formData.name, formData.email, formData.password);
-      toast({
-        title: "Success",
-        description: "Account created successfully!",
-      });
-      navigate("/dashboard");
+      const result = await register(formData.name, formData.email, formData.password);
+      
+      if (result && result.email_verification_required) {
+        toast({
+          title: "Verification Email Sent",
+          description: result.message || "Please check your inbox and confirm your email before logging in.",
+          className: "bg-blue-50 border-blue-200 dark:bg-blue-900/30 dark:border-blue-800",
+        });
+        navigate("/login");
+      } else {
+        toast({
+          title: "Success",
+          description: "Account created successfully!",
+        });
+        navigate("/dashboard");
+      }
     } catch (error: unknown) {
       const err = error as Error;
       toast({

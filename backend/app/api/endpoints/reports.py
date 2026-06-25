@@ -63,6 +63,30 @@ async def get_reports_list(
     )
 
 
+@router.get("/check/{ticker}")
+async def check_report_exists(
+    ticker: str,
+    current_user: dict = Depends(get_current_active_user),
+    db: Client = Depends(get_db)
+):
+    """
+    Check if a completed report exists for the given ticker and user
+    """
+    ticker_upper = ticker.upper().strip()
+    result = db.table('reports')\
+        .select('id')\
+        .eq('ticker', ticker_upper)\
+        .eq('user_id', current_user['id'])\
+        .eq('status', 'completed')\
+        .order('created_at', desc=True)\
+        .limit(1)\
+        .execute()
+        
+    if result.data:
+        return {"exists": True, "report_id": result.data[0]['id']}
+    return {"exists": False}
+
+
 @router.get("/{report_id}", response_model=AnalysisReportResponse)
 async def get_report(
     report_id: str,
@@ -95,8 +119,8 @@ async def get_report(
             detail=f"Report is still being processed. Status: {report['status']}"
         )
     
-    # Return report (assuming JSON structure is stored in report_data column)
-    report_data = report.get('report_data', {})
+    # Prefer the current analysis_result column; report_data is kept for older records.
+    report_data = report.get('analysis_result') or report.get('report_data') or {}
     
     # If report_data is empty, return mock data for now
     if not report_data:
@@ -161,7 +185,7 @@ async def delete_report(
     """
     # Verify report belongs to user
     report_result = db.table('reports')\
-        .select('id')\
+        .select('id, source_document_id')\
         .eq('id', report_id)\
         .eq('user_id', current_user['id'])\
         .single()\
@@ -173,10 +197,24 @@ async def delete_report(
             detail="Report not found"
         )
     
+    report = report_result.data
+    source_doc_id = report.get('source_document_id')
+    
     # Delete report
     db.table('reports').delete().eq('id', report_id).execute()
     
     # Also delete associated chat messages
     db.table('chat_messages').delete().eq('report_id', report_id).execute()
     
+    # Clean up source document and vector embeddings
+    if source_doc_id:
+        try:
+            db.table('source_documents').delete().eq('id', source_doc_id).execute()
+            
+            from app.utils.vector_store import get_vector_store
+            vector_store = get_vector_store()
+            vector_store.delete_document(source_doc_id)
+        except Exception as e:
+            print(f"Error cleaning up document/embeddings during deletion: {e}")
+            
     return {"message": "Report deleted successfully"}

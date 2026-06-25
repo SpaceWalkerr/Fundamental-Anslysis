@@ -5,7 +5,7 @@ Create and manage watchlists, add/remove stocks, set price targets
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 from pydantic import BaseModel, Field
 
 from app.core.security import get_current_user

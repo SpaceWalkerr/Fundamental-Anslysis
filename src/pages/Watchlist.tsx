@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -55,6 +55,7 @@ export default function Watchlist() {
   const [items, setItems] = useState<WatchlistItem[]>([]);
   const [summary, setSummary] = useState<WatchlistSummary | null>(null);
   const [loading, setLoading] = useState(true);
+  const [itemsLoading, setItemsLoading] = useState(true);
   
   // Create watchlist dialog
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -69,6 +70,54 @@ export default function Watchlist() {
   const [newItemTargetType, setNewItemTargetType] = useState<'BUY' | 'SELL' | 'ALERT'>('BUY');
   const [newItemNotes, setNewItemNotes] = useState('');
   const [newItemTags, setNewItemTags] = useState('');
+
+  // Ticker suggestions states
+  const [newItemSuggestions, setNewItemSuggestions] = useState<any[]>([]);
+  const [loadingNewItemSuggestions, setLoadingNewItemSuggestions] = useState(false);
+  const [showNewItemSuggestions, setShowNewItemSuggestions] = useState(false);
+  const newItemSearchRef = useRef<HTMLDivElement>(null);
+
+  // Ticker search recommendation logic
+  useEffect(() => {
+    if (!newItemTicker) {
+      setNewItemSuggestions([]);
+      return;
+    }
+
+    const search = async () => {
+      setLoadingNewItemSuggestions(true);
+      try {
+        const results = await api.analysis.searchCompany(newItemTicker);
+        setNewItemSuggestions(results || []);
+      } catch (err) {
+        console.error("Failed to search company for watchlist:", err);
+      } finally {
+        setLoadingNewItemSuggestions(false);
+      }
+    };
+
+    const delay = setTimeout(search, 300);
+    return () => clearTimeout(delay);
+  }, [newItemTicker]);
+
+  // Close suggestions on click outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (newItemSearchRef.current && !newItemSearchRef.current.contains(event.target as Node)) {
+        setShowNewItemSuggestions(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Reset suggestions states when dialog is closed
+  useEffect(() => {
+    if (!addItemDialogOpen) {
+      setShowNewItemSuggestions(false);
+      setNewItemSuggestions([]);
+    }
+  }, [addItemDialogOpen]);
 
   // Load watchlists on mount
   useEffect(() => {
@@ -102,12 +151,15 @@ export default function Watchlist() {
   };
 
   const loadWatchlistItems = async (watchlistId: string) => {
+    setItemsLoading(true);
     try {
       const data = await api.watchlists.getWatchlistItems(watchlistId, true);
       setItems(data);
     } catch (error) {
       toast.error('Failed to load watchlist items');
       console.error(error);
+    } finally {
+      setItemsLoading(false);
     }
   };
 
@@ -192,9 +244,11 @@ export default function Watchlist() {
     }
   };
 
-  const formatPrice = (price: number | null) => {
+  const formatPrice = (price: number | null, ticker?: string) => {
     if (price === null) return 'N/A';
-    return `$${price.toFixed(2)}`;
+    const isIndian = ticker?.toUpperCase().endsWith('.NS') || ticker?.toUpperCase().endsWith('.BO');
+    const symbol = isIndian ? '₹' : '$';
+    return `${symbol}${price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   const formatChange = (change: number | null, changePct: number | null) => {
@@ -345,15 +399,68 @@ export default function Watchlist() {
                 </DialogHeader>
                 
                 <div className="space-y-4">
-                  <div>
+                  <div className="relative" ref={newItemSearchRef}>
                     <Label htmlFor="ticker">Ticker Symbol</Label>
                     <Input
                       id="ticker"
                       value={newItemTicker}
-                      onChange={(e) => setNewItemTicker(e.target.value)}
-                      placeholder="AAPL"
+                      onChange={(e) => {
+                        setNewItemTicker(e.target.value);
+                        setShowNewItemSuggestions(true);
+                      }}
+                      onFocus={() => setShowNewItemSuggestions(true)}
+                      placeholder="TCS"
                       className="uppercase"
+                      autoComplete="off"
                     />
+                    
+                    {showNewItemSuggestions && newItemTicker && (
+                      <div className="absolute left-0 right-0 mt-1 bg-white rounded-xl border border-border shadow-lg max-h-[200px] overflow-y-auto p-1.5 z-[100]">
+                        {loadingNewItemSuggestions ? (
+                          <div className="flex items-center justify-center py-4 text-xs text-muted-foreground">
+                            <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-primary mr-2"></div>
+                            Searching...
+                          </div>
+                        ) : newItemSuggestions.length === 0 ? (
+                          <div className="py-4 text-center text-xs text-muted-foreground">
+                            No companies found.
+                          </div>
+                        ) : (
+                          <div className="space-y-1">
+                            {newItemSuggestions.map((company) => {
+                              const isINR = company.ticker.endsWith(".NS") || company.ticker.endsWith(".BO");
+                              const currency = isINR ? "₹" : "$";
+                              const price = company.price || 0;
+                              
+                              return (
+                                <div
+                                  key={company.ticker}
+                                  onClick={() => {
+                                    setNewItemTicker(company.ticker);
+                                    setShowNewItemSuggestions(false);
+                                  }}
+                                  className="flex items-center justify-between p-2 hover:bg-accent/40 rounded-lg cursor-pointer transition-colors"
+                                >
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <span className="px-2 py-0.5 rounded bg-primary/10 text-primary text-[10px] font-semibold shrink-0">
+                                      {company.ticker}
+                                    </span>
+                                    <span className="text-xs font-medium text-foreground truncate">
+                                      {company.name || company.ticker}
+                                    </span>
+                                  </div>
+                                  {price > 0 && (
+                                    <span className="text-[10px] text-muted-foreground shrink-0 pl-2">
+                                      {currency}{price.toFixed(2)}
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                   
                   <div>
@@ -509,7 +616,12 @@ export default function Watchlist() {
           )}
         </CardHeader>
         <CardContent>
-          {items.length === 0 ? (
+          {itemsLoading ? (
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+              <p className="mt-4 text-xs text-muted-foreground">Loading watchlist items...</p>
+            </div>
+          ) : items.length === 0 ? (
             <div className="text-center py-12">
               <AlertCircle className="w-12 h-12 text-muted-foreground/50 mx-auto mb-4" />
               <p className="text-muted-foreground mb-4">No stocks in this watchlist</p>
@@ -541,13 +653,13 @@ export default function Watchlist() {
                         <div className="text-xs text-muted-foreground">{item.company_name}</div>
                       )}
                     </TableCell>
-                    <TableCell>{formatPrice(item.added_price)}</TableCell>
-                    <TableCell>{formatPrice(item.current_price)}</TableCell>
+                    <TableCell>{formatPrice(item.added_price, item.ticker)}</TableCell>
+                    <TableCell>{formatPrice(item.current_price, item.ticker)}</TableCell>
                     <TableCell>{formatChange(item.change, item.change_pct)}</TableCell>
                     <TableCell>
                       {item.target_price ? (
                         <div>
-                          <div>{formatPrice(item.target_price)}</div>
+                          <div>{formatPrice(item.target_price, item.ticker)}</div>
                           <Badge variant="outline" className="text-xs">
                             {item.target_price_type}
                           </Badge>

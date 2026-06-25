@@ -4,7 +4,7 @@ Loads settings from environment variables
 """
 from pydantic_settings import BaseSettings
 from pydantic import field_validator
-from typing import List, Union
+from typing import List, Any
 import os
 
 
@@ -41,8 +41,8 @@ class Settings(BaseSettings):
     
     # Anthropic
     ANTHROPIC_API_KEY: str = ""
-    ANTHROPIC_MODEL: str = "claude-3-sonnet-20240229"
-    
+    ANTHROPIC_MODEL: str = "claude-opus-4-8"
+
     # Stock Data APIs
     ALPHA_VANTAGE_API_KEY: str = ""
     FMP_API_KEY: str = ""  # Financial Modeling Prep
@@ -68,8 +68,8 @@ class Settings(BaseSettings):
     UPLOAD_DIR: str = "./uploads"
     MAX_UPLOAD_SIZE: int = 26214400  # 25MB
     
-    # CORS - can be comma-separated string or list
-    CORS_ORIGINS: str = "http://localhost:5173,http://localhost:8080,http://localhost:8081"
+    # CORS - comma-separated env var or JSON array, exposed to FastAPI as a list
+    CORS_ORIGINS: Any = ["http://localhost:5173", "http://localhost:8080", "http://localhost:8081"]
     
     # Rate Limiting
     RATE_LIMIT_PER_MINUTE: int = 60
@@ -78,12 +78,19 @@ class Settings(BaseSettings):
     STOCK_API_KEY: str = ""
     STOCK_API_URL: str = ""
     
-    @field_validator('CORS_ORIGINS', mode='after')
+    @field_validator('CORS_ORIGINS', mode='before')
     @classmethod
     def parse_cors_origins(cls, v):
-        """Parse CORS_ORIGINS from string to list"""
+        """Parse CORS_ORIGINS from string or json to list"""
         if isinstance(v, str):
-            return [origin.strip() for origin in v.split(",")]
+            v = v.strip()
+            if v.startswith("[") and v.endswith("]"):
+                try:
+                    import json
+                    return json.loads(v)
+                except Exception:
+                    pass
+            return [origin.strip() for origin in v.split(",") if origin.strip()]
         return v
     
     class Config:

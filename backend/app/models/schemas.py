@@ -27,6 +27,7 @@ class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
     expires_in: int
+    refresh_token: Optional[str] = None
     user: Dict[str, Any]
 
 
@@ -39,6 +40,10 @@ class UserResponse(BaseModel):
     reports_used: int
     reports_limit: int
     created_at: datetime
+    company: Optional[str] = ""
+    email_notifications: Optional[bool] = True
+    marketing_emails: Optional[bool] = False
+    report_alerts: Optional[bool] = True
 
 
 # ============= Analysis Models =============
@@ -55,6 +60,7 @@ class FileUploadResponse(BaseModel):
 class ProcessingStatus(str, Enum):
     """Processing status enum"""
     PENDING = "pending"
+    PROCESSING = "processing"
     UPLOADING = "uploading"
     EXTRACTING = "extracting"
     EMBEDDING = "embedding"
@@ -69,6 +75,9 @@ class AnalysisRequest(BaseModel):
     file_id: Optional[str] = None
     company_ticker: Optional[str] = None
     company_name: Optional[str] = None
+    # Backward-compatible aliases used by the current frontend helper.
+    ticker: Optional[str] = None
+    company: Optional[str] = None
 
 
 class ProcessingStepResponse(BaseModel):
@@ -126,6 +135,7 @@ class ChatSource(BaseModel):
     document: str
     page: int
     excerpt: str
+    report_id: Optional[str] = None
     similarity_score: float
 
 
@@ -160,10 +170,43 @@ class CompanySearch(BaseModel):
     sector: str
     price: float
     change_percent: float
-    pe_ratio: float
-    revenue_growth: float
-    profit_margin: float
+    pe_ratio: Optional[float] = None
+    revenue_growth: Optional[float] = None
+    profit_margin: Optional[float] = None
     market_cap: str
+    currency: Optional[str] = "USD"
+
+
+class StockDetails(BaseModel):
+    """Detailed stock details response"""
+    ticker: str
+    name: str
+    description: Optional[str] = None
+    sector: Optional[str] = None
+    industry: Optional[str] = None
+    exchange: Optional[str] = None
+    currency: Optional[str] = "USD"
+    country: Optional[str] = None
+    market_cap: Optional[float] = None
+    pe_ratio: Optional[float] = None
+    peg_ratio: Optional[float] = None
+    pb_ratio: Optional[float] = None
+    dividend_yield: Optional[float] = None
+    eps: Optional[float] = None
+    profit_margin: Optional[float] = None
+    operating_margin: Optional[float] = None
+    roe: Optional[float] = None
+    roa: Optional[float] = None
+    revenue_growth: Optional[float] = None
+    earnings_growth: Optional[float] = None
+    current_ratio: Optional[float] = None
+    debt_to_equity: Optional[float] = None
+    beta: Optional[float] = None
+    week_52_high: Optional[float] = None
+    week_52_low: Optional[float] = None
+    avg_volume: Optional[float] = None
+    shares_outstanding: Optional[float] = None
+    price: Optional[float] = None
 
 
 class FilterOperator(str, Enum):
@@ -210,6 +253,32 @@ class StockScreenerResponse(BaseModel):
     filters_applied: List[StockFilter]
 
 
+class SaveScreenerRequest(BaseModel):
+    """Save custom stock screener request"""
+    name: str = Field(..., min_length=1)
+    description: Optional[str] = ""
+    filters: List[StockFilter]
+    is_public: Optional[bool] = False
+
+
+class WatchlistItemResponse(BaseModel):
+    """Watchlist item with current prices"""
+    watchlist_id: str
+    ticker: str
+    notes: Optional[str] = None
+    target_price: Optional[float] = None
+    added_at: datetime
+    name: str
+    price: Optional[float] = None
+    change_percent: Optional[float] = None
+    currency: str = "USD"
+
+
+class WatchlistResponse(BaseModel):
+    """List of watchlist items"""
+    watchlist: List[WatchlistItemResponse]
+
+
 # ============= Report Models =============
 
 class ReportListItem(BaseModel):
@@ -235,3 +304,4 @@ class ErrorResponse(BaseModel):
     error: str
     message: str
     details: Optional[Dict[str, Any]] = None
+
