@@ -1,5 +1,9 @@
 // API Base URL
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const DEFAULT_API_URL = import.meta.env.PROD
+  ? 'https://fundamental-anslysis-4rwu.onrender.com'
+  : 'http://localhost:8080';
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || DEFAULT_API_URL;
 
 // Helper function to get auth token
 const getAuthToken = () => {
