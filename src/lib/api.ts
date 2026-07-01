@@ -1,3 +1,5 @@
+import { supabase } from './supabase';
+
 // API Base URL
 const DEFAULT_API_URL = import.meta.env.PROD
   ? 'https://fundamental-anslysis-4rwu.onrender.com'
@@ -5,14 +7,25 @@ const DEFAULT_API_URL = import.meta.env.PROD
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || DEFAULT_API_URL;
 
-// Helper function to get auth token
-const getAuthToken = () => {
+// Helper function to get auth token.
+// Prefer the live Supabase session token (auto-refreshed, used by Google OAuth
+// logins); fall back to the token stored by the backend email/password login
+// and the dev test-login token.
+const getAuthToken = async (): Promise<string | null> => {
+  try {
+    const { data } = await supabase.auth.getSession();
+    if (data.session?.access_token) {
+      return data.session.access_token;
+    }
+  } catch {
+    // ignore and fall back to the stored token
+  }
   return localStorage.getItem('auth_token');
 };
 
 // Helper function to make authenticated requests
 const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
-  const token = getAuthToken();
+  const token = await getAuthToken();
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
     ...options.headers,
@@ -103,7 +116,7 @@ export const analysisApi = {
     if (company) formData.append('company', company);
     if (ticker) formData.append('ticker', ticker);
 
-    const token = getAuthToken();
+    const token = await getAuthToken();
     const response = await fetch(`${API_BASE_URL}/api/analysis/upload`, {
       method: 'POST',
       headers: {
@@ -120,18 +133,18 @@ export const analysisApi = {
     return response.json();
   },
 
-  analyzeFile: async (fileId: string, company: string, ticker: string) => {
+  analyzeFile: async (fileId: string | null, company: string, ticker: string) => {
     const data = await fetchWithAuth('/api/analysis/analyze', {
       method: 'POST',
-      body: JSON.stringify({ 
-        file_id: fileId, 
-        company, 
-        ticker 
+      body: JSON.stringify({
+        file_id: fileId,
+        company_name: company,
+        company_ticker: ticker,
       }),
     });
-    
+
     return {
-      reportId: data.analysis_id,
+      reportId: data.report_id,
       status: data.status,
       company,
       ticker,
@@ -144,6 +157,10 @@ export const analysisApi = {
 
   getReport: async (reportId: string) => {
     return await fetchWithAuth(`/api/reports/${reportId}`);
+  },
+
+  getReportsList: async (limit: number = 20, offset: number = 0) => {
+    return await fetchWithAuth(`/api/reports/list?limit=${limit}&offset=${offset}`);
   },
 
   searchCompany: async (query: string) => {
@@ -208,7 +225,7 @@ export const chatApi = {
 // Real API service for PDF export
 export const pdfApi = {
   exportAnalysis: async (ticker: string, analysisData: any) => {
-    const token = getAuthToken();
+    const token = await getAuthToken();
     const response = await fetch(`${API_BASE_URL}/api/pdf/export/analysis`, {
       method: 'POST',
       headers: {
@@ -231,7 +248,7 @@ export const pdfApi = {
   },
 
   exportAnalysisByTicker: async (ticker: string) => {
-    const token = getAuthToken();
+    const token = await getAuthToken();
     const response = await fetch(`${API_BASE_URL}/api/pdf/export/analysis/${ticker}`, {
       method: 'GET',
       headers: {
@@ -248,7 +265,7 @@ export const pdfApi = {
   },
 
   exportScreening: async (presetName: string, screeningData: any) => {
-    const token = getAuthToken();
+    const token = await getAuthToken();
     const response = await fetch(`${API_BASE_URL}/api/pdf/export/screening`, {
       method: 'POST',
       headers: {
@@ -275,7 +292,7 @@ export const pdfApi = {
   },
 
   exportTechnical: async (ticker: string, technicalData: any) => {
-    const token = getAuthToken();
+    const token = await getAuthToken();
     const response = await fetch(`${API_BASE_URL}/api/pdf/export/technical`, {
       method: 'POST',
       headers: {
@@ -297,7 +314,7 @@ export const pdfApi = {
   },
 
   exportTechnicalByTicker: async (ticker: string, period: string = '1y') => {
-    const token = getAuthToken();
+    const token = await getAuthToken();
     const response = await fetch(`${API_BASE_URL}/api/pdf/export/technical/${ticker}?period=${period}`, {
       method: 'GET',
       headers: {

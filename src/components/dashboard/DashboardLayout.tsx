@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
@@ -38,17 +38,17 @@ const DashboardLayout = ({ children }: SidebarProps) => {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const { logout } = useAuthStore();
+  const { logout, user, initializeAuth } = useAuthStore();
 
   const handleLogout = async () => {
     await logout();
     navigate("/");
   };
 
-  // Sync profile metrics and usage details whenever the layout mounts or route changes
+  // Refresh profile metrics and usage details when the dashboard mounts
   useEffect(() => {
-    refreshProfile();
-  }, [refreshProfile, location.pathname]);
+    initializeAuth();
+  }, [initializeAuth]);
 
   return (
     <div className="min-h-screen bg-secondary/30 flex">

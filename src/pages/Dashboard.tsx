@@ -291,16 +291,8 @@ const Dashboard = () => {
     if (analyzingTicker) return;
     setAnalyzingTicker(ticker);
     try {
-      const res = await api.analysis.checkReportExists(ticker);
-      if (res && res.exists && res.report_id) {
-        navigate(`/dashboard/report/${res.report_id}`);
-      } else {
-        const analysisRes = await api.analysis.analyzeFile(null, name, ticker);
-        navigate(`/dashboard/report/${analysisRes.reportId}`);
-      }
-    } catch (err) {
-      console.error("[Dashboard] Error checking or generating report:", err);
-      // Fallback in case of failure: go to analyze page
+      // Analysis runs on uploaded financial documents, so route to the upload
+      // flow with the chosen company/ticker prefilled.
       navigate(`/dashboard/analyze?ticker=${ticker}&name=${encodeURIComponent(name)}`);
     } finally {
       setAnalyzingTicker(null);

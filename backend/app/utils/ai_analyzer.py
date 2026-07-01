@@ -35,7 +35,7 @@ class AIAnalyzer:
         """Check if AI service is configured"""
         return self.provider is not None
     
-    async def analyze_financial_document(
+    def analyze_financial_document(
         self,
         extracted_text: str,
         company_name: str,
@@ -67,9 +67,9 @@ class AIAnalyzer:
         
         try:
             if self.provider == "openai":
-                response = await self._analyze_with_openai(prompt)
+                response = self._analyze_with_openai(prompt)
             else:
-                response = await self._analyze_with_anthropic(prompt)
+                response = self._analyze_with_anthropic(prompt)
             
             # Parse response
             analysis = self._parse_analysis_response(response)
@@ -165,7 +165,7 @@ IMPORTANT:
 """
         return prompt
     
-    async def _analyze_with_openai(self, prompt: str) -> str:
+    def _analyze_with_openai(self, prompt: str) -> str:
         """Analyze using OpenAI GPT-4"""
         response = openai.chat.completions.create(
             model=self.model,
@@ -186,7 +186,7 @@ IMPORTANT:
         
         return response.choices[0].message.content
     
-    async def _analyze_with_anthropic(self, prompt: str) -> str:
+    def _analyze_with_anthropic(self, prompt: str) -> str:
         """Analyze using Anthropic Claude"""
         response = self.client.messages.create(
             model=self.model,

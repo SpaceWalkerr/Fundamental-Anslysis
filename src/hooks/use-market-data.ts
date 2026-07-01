@@ -4,6 +4,15 @@
  */
 import { useEffect, useRef, useState, useCallback } from 'react';
 
+// Derive the WebSocket base from the API URL so it works in dev and prod.
+// http -> ws, https -> wss (so an https:// page doesn't try an insecure ws://).
+const API_URL =
+  import.meta.env.VITE_API_URL ||
+  (import.meta.env.PROD
+    ? 'https://fundamental-anslysis-4rwu.onrender.com'
+    : 'http://localhost:8080');
+const WS_BASE_URL = API_URL.replace(/^http/, 'ws');
+
 interface PriceUpdate {
   ticker: string;
   price: number;
@@ -35,7 +44,7 @@ export function useMarketData() {
     if (!token) return;
     
     const ws = new WebSocket(
-      `ws://localhost:8000/api/ws/market-data?token=${token}`
+      `${WS_BASE_URL}/api/ws/market-data?token=${token}`
     );
     
     ws.onopen = () => {

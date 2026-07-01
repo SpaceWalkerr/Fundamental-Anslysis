@@ -11,7 +11,7 @@ import Header from "@/components/landing/Header";
 
 const Register = () => {
   const navigate = useNavigate();
-  const { register, isLoading } = useAuthStore();
+  const { register, loginWithGoogle, isLoading } = useAuthStore();
   const { toast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
@@ -26,10 +26,11 @@ const Register = () => {
     try {
       await register(formData.name, formData.email, formData.password);
       toast({
-        title: "Success",
-        description: "Account created successfully!",
+        title: "Check your email",
+        description:
+          "Account created! Please verify your email address, then log in.",
       });
-      navigate("/dashboard");
+      navigate("/login");
     } catch (error: unknown) {
       const err = error as Error;
       toast({

@@ -4,7 +4,6 @@ Generates professional PDF reports from HTML templates
 Uses WeasyPrint for HTML-to-PDF conversion
 """
 
-from weasyprint import HTML, CSS
 from jinja2 import Environment, FileSystemLoader
 from datetime import datetime
 from typing import Dict, Any, Optional, List
@@ -13,6 +12,26 @@ import os
 import base64
 
 from ..core.config import settings
+
+
+def _load_weasyprint_html():
+    """
+    Lazily import WeasyPrint's HTML class.
+
+    WeasyPrint depends on native libraries (pango, cairo, gdk-pixbuf). Importing
+    it at module load would crash the entire API on startup if those libraries
+    are missing. Loading it here means PDF export degrades to a clean error while
+    every other endpoint keeps working.
+    """
+    try:
+        from weasyprint import HTML
+        return HTML
+    except Exception as exc:  # ImportError, or OSError from missing system libs
+        raise RuntimeError(
+            "PDF generation is unavailable: WeasyPrint and its system libraries "
+            "(pango, cairo, gdk-pixbuf) are not installed on this server. "
+            f"Original error: {exc}"
+        )
 
 
 class PDFGenerator:
@@ -70,7 +89,8 @@ class PDFGenerator:
         Returns:
             PDF bytes
         """
-        # Generate PDF from HTML
+        # Generate PDF from HTML (WeasyPrint loaded lazily; see _load_weasyprint_html)
+        HTML = _load_weasyprint_html()
         pdf_bytes = HTML(string=html_content).write_pdf()
         
         # Optionally save to disk

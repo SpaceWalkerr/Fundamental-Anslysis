@@ -57,16 +57,16 @@ async def send_chat_message(
     
     # Get conversation history (last 10 messages)
     history_result = db.table('chat_messages')\
-        .select('role, message')\
+        .select('role, content')\
         .eq('report_id', request.report_id)\
         .order('created_at', desc=False)\
         .limit(10)\
         .execute()
-    
+
     conversation_history = []
     if history_result.data:
         conversation_history = [
-            {"role": msg["role"], "content": msg["message"]}
+            {"role": msg["role"], "content": msg["content"]}
             for msg in history_result.data
         ]
     
@@ -100,21 +100,21 @@ async def send_chat_message(
         "report_id": request.report_id,
         "user_id": current_user['id'],
         "role": "user",
-        "message": request.message,
+        "content": request.message,
     }
-    
+
     db.table('chat_messages').insert(chat_record).execute()
-    
-    # Save assistant response
+
+    # Save assistant response. Sources are returned live in the response but not
+    # persisted (the chat_messages table has no sources column).
     assistant_record = {
         "id": str(uuid.uuid4()),
         "report_id": request.report_id,
         "user_id": current_user['id'],
         "role": "assistant",
-        "message": response_content,
-        "sources": [source.dict() for source in sources_data] if sources_data else []
+        "content": response_content,
     }
-    
+
     db.table('chat_messages').insert(assistant_record).execute()
     
     return ChatMessageResponse(
@@ -159,7 +159,7 @@ async def get_chat_history(
     for msg in messages_result.data:
         messages.append(ChatMessageResponse(
             role=msg['role'],
-            content=msg['message'],
+            content=msg['content'],
             sources=[ChatSource(**src) for src in msg.get('sources', [])] if msg.get('sources') else [],
             timestamp=msg['created_at']
         ))

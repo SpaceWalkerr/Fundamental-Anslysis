@@ -95,10 +95,10 @@ async def get_report(
             detail=f"Report is still being processed. Status: {report['status']}"
         )
     
-    # Return report (assuming JSON structure is stored in report_data column)
-    report_data = report.get('report_data', {})
-    
-    # If report_data is empty, return mock data for now
+    # The full AI analysis is stored in the analysis_result JSONB column (migration 002)
+    report_data = report.get('analysis_result') or {}
+
+    # If the analysis result is empty, fall back to sample data
     if not report_data:
         report_data = {
             "company": report.get('company', 'Sample Company'),

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
@@ -14,7 +14,6 @@ import {
   Share2,
   Send,
   TrendingUp,
-  TrendingDown,
   AlertTriangle,
   CheckCircle,
   MessageSquare,
@@ -22,110 +21,149 @@ import {
   DollarSign,
   BarChart3,
   PieChart,
+  Loader2,
 } from "lucide-react";
 
-// Mock report data
-const reportData = {
-  id: 1,
-  company: "Apple Inc.",
-  ticker: "AAPL",
-  exchange: "NASDAQ",
-  date: "January 28, 2026",
-  overallScore: 8.5,
-  summary:
-    "Apple demonstrates exceptional financial strength with industry-leading profitability metrics and robust cash flow generation. The company maintains a fortress balance sheet while returning significant capital to shareholders. Premium valuation is warranted by ecosystem strength and services growth momentum.",
-  metrics: {
-    profitability: { score: 9.2, label: "Excellent" },
-    liquidity: { score: 7.8, label: "Good" },
-    solvency: { score: 8.5, label: "Strong" },
-    efficiency: { score: 8.9, label: "Excellent" },
-  },
-  keyRatios: [
-    { name: "P/E Ratio", value: "28.5x", benchmark: "Industry: 25.2x" },
-    { name: "ROE", value: "89.6%", benchmark: "Industry: 18.4%" },
-    { name: "Gross Margin", value: "46.2%", benchmark: "Industry: 42.1%" },
-    { name: "Current Ratio", value: "1.08", benchmark: "Industry: 1.35" },
-    { name: "Debt/Equity", value: "1.98", benchmark: "Industry: 0.85" },
-    { name: "Operating Margin", value: "31.5%", benchmark: "Industry: 22.3%" },
-  ],
-  strengths: [
-    "Exceptional brand value and customer loyalty",
-    "Dominant ecosystem with high switching costs",
-    "Services segment growing at 15%+ annually",
-    "Strong free cash flow generation ($100B+ annually)",
-    "Proven pricing power across product lines",
-  ],
-  redFlags: [
-    "High debt levels relative to historical norms",
-    "Slowing iPhone growth in mature markets",
-    "Regulatory scrutiny on App Store practices",
-    "Geographic concentration risk in China",
-  ],
-  investmentAssessment:
-    "Apple represents a quality holding for long-term investors seeking exposure to a dominant technology franchise. While the valuation appears premium relative to near-term earnings growth, the company's ecosystem strength, services momentum, and capital return program support the current multiple. Suitable for growth-oriented and dividend-growth investors with a 3-5 year horizon.",
-};
+interface MetricValue {
+  score: number;
+  label?: string;
+  details?: string;
+}
 
-const chatMessages = [
-  {
-    role: "assistant",
-    content:
-      "I've analyzed Apple's financial statements. Feel free to ask me any questions about the analysis!",
-    sources: [],
-  },
-];
+interface KeyRatio {
+  name: string;
+  value: string;
+  benchmark: string;
+}
+
+interface Report {
+  id: string;
+  company: string;
+  ticker: string;
+  exchange: string;
+  date: string;
+  overall_score: number;
+  summary: string;
+  metrics: Record<string, MetricValue>;
+  key_ratios: KeyRatio[];
+  strengths: string[];
+  red_flags: string[];
+  investment_assessment: string;
+}
+
+interface ChatSource {
+  document: string;
+  page: number;
+  excerpt: string;
+}
+
+interface UIMessage {
+  role: "user" | "assistant";
+  content: string;
+  sources?: ChatSource[];
+}
+
+const WELCOME_MESSAGE: UIMessage = {
+  role: "assistant",
+  content:
+    "I've analyzed this document. Ask me anything about the financials, ratios, or risks and I'll answer from the source material.",
+  sources: [],
+};
 
 const AnalysisReport = () => {
   const { id } = useParams();
   const { toast } = useToast();
-  const [messages, setMessages] = useState(chatMessages);
+
+  const [report, setReport] = useState<Report | null>(null);
+  const [isLoadingReport, setIsLoadingReport] = useState(true);
+  const [reportError, setReportError] = useState<string | null>(null);
+
+  const [messages, setMessages] = useState<UIMessage[]>([WELCOME_MESSAGE]);
   const [inputValue, setInputValue] = useState("");
+  const [isSending, setIsSending] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
+  // Fetch the report and any existing chat history on mount
+  useEffect(() => {
+    if (!id) return;
+
+    let cancelled = false;
+
+    const load = async () => {
+      setIsLoadingReport(true);
+      setReportError(null);
+      try {
+        const data = await api.analysis.getReport(id);
+        if (!cancelled) setReport(data);
+      } catch (error) {
+        if (!cancelled) {
+          setReportError(
+            error instanceof Error ? error.message : "Failed to load report."
+          );
+        }
+      } finally {
+        if (!cancelled) setIsLoadingReport(false);
+      }
+
+      try {
+        const history = await api.chat.getChatHistory(id);
+        if (!cancelled && Array.isArray(history) && history.length > 0) {
+          setMessages([
+            WELCOME_MESSAGE,
+            ...history.map((m: any) => ({
+              role: m.role,
+              content: m.content,
+              sources: m.sources || [],
+            })),
+          ]);
+        }
+      } catch {
+        // No history yet — keep the welcome message
+      }
+    };
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
+  const formattedDate = report?.date
+    ? new Date(report.date).toLocaleDateString(undefined, {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })
+    : "";
+
   const handleExportPDF = async () => {
+    if (!report) return;
     setIsExporting(true);
     try {
-      // Prepare analysis data for PDF
       const analysisData = {
-        ticker: reportData.ticker,
-        company_name: reportData.company,
-        current_price: 175.50, // Mock price
-        recommendation: reportData.overallScore >= 8 ? "BUY" : reportData.overallScore >= 6 ? "HOLD" : "SELL",
-        score: reportData.overallScore * 10, // Convert to 100 scale
-        metrics: {
-          pe_ratio: 28.5,
-          eps: 6.15,
-          market_cap: "2.8T",
-          revenue_growth: 2.8,
-          profit_margin: 25.3,
-          roe: 89.6,
-        },
-        valuation: {
-          fair_value: 185.0,
-          upside_potential: 5.4,
-          valuation_rating: "Fair Value",
-        },
-        strengths: reportData.strengths,
-        weaknesses: reportData.redFlags,
-        ai_summary: reportData.summary,
-        ai_recommendation: reportData.investmentAssessment,
-        risk_level: "Medium",
-        risk_factors: reportData.redFlags,
+        ticker: report.ticker,
+        company_name: report.company,
+        recommendation:
+          report.overall_score >= 8 ? "BUY" : report.overall_score >= 6 ? "HOLD" : "SELL",
+        score: report.overall_score * 10,
+        strengths: report.strengths,
+        weaknesses: report.red_flags,
+        ai_summary: report.summary,
+        ai_recommendation: report.investment_assessment,
       };
 
-      // Call PDF export API
-      const blob = await api.pdf.exportAnalysis(reportData.ticker, analysisData);
-      
-      // Download the PDF
-      downloadBlob(blob, `analysis_${reportData.ticker}.pdf`);
-      
+      const blob = await api.pdf.exportAnalysis(report.ticker, analysisData);
+      downloadBlob(blob, `analysis_${report.ticker}.pdf`);
+
       toast({
         title: "PDF Exported",
         description: "Your analysis report has been downloaded successfully.",
       });
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: "Export Failed",
-        description: error.message || "Failed to export PDF. Please try again.",
+        description:
+          error instanceof Error ? error.message : "Failed to export PDF. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -133,56 +171,73 @@ const AnalysisReport = () => {
     }
   };
 
-  const handleSendMessage = () => {
-    if (!inputValue.trim()) return;
+  const handleSendMessage = async () => {
+    const text = inputValue.trim();
+    if (!text || isSending || !id) return;
 
-    const newUserMessage = { role: "user", content: inputValue };
-    
-    let responseContent = "";
-    let sources = [];
-
-    if (inputValue.toLowerCase().includes("revenue")) {
-      responseContent = "Apple's revenue has shown consistent growth driven by Services and iPhone segments. The company reported $394.3B in FY2024, representing a 2.8% YoY increase.";
-      sources = [
-        {
-          document: "Apple Inc. 10-K Annual Report (FY2024)",
-          page: 24,
-          excerpt: "Total net sales increased to $394.3B in fiscal 2024, driven by strong Services and iPhone segment performance.",
-        },
-        {
-          document: "Apple Inc. 10-Q Quarterly Report (Q1 FY2025)",
-          page: 15,
-          excerpt: "Services revenue continues to grow at double-digit rates, with 15%+ YoY growth in the latest quarter.",
-        },
-      ];
-    } else if (inputValue.toLowerCase().includes("debt")) {
-      responseContent = "Apple's total debt stands at $123B, with a debt-to-equity ratio of 1.98. While higher than historical norms, the company's robust cash flow easily covers interest expenses with an interest coverage ratio of 42x.";
-      sources = [
-        {
-          document: "Apple Inc. 10-K Annual Report (FY2024)",
-          page: 42,
-          excerpt: "Total long-term debt as of September 28, 2024 was $123.0 billion, of which $8.0 billion is due within one year.",
-        },
-        {
-          document: "Investor Presentation Q1 2025",
-          page: 8,
-          excerpt: "Apple's strong free cash flow of $110+ billion annually provides ample coverage for debt obligations and shareholder returns.",
-        },
-      ];
-    } else {
-      responseContent = "I'd be happy to explain that. Looking at the financial data, Apple maintains strong fundamentals across most metrics. Is there a specific aspect you'd like me to elaborate on?";
-      sources = [];
-    }
-
-    const mockResponse = {
-      role: "assistant",
-      content: responseContent,
-      sources: sources,
-    };
-
-    setMessages([...messages, newUserMessage, mockResponse]);
+    setMessages((prev) => [...prev, { role: "user", content: text }]);
     setInputValue("");
+    setIsSending(true);
+
+    try {
+      const resp = await api.chat.sendMessage(id, text);
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: resp.message, sources: resp.sources },
+      ]);
+    } catch (error) {
+      toast({
+        title: "Chat error",
+        description:
+          error instanceof Error ? error.message : "Failed to get a response.",
+        variant: "destructive",
+      });
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: "Sorry, I couldn't answer that right now. Please try again.",
+        },
+      ]);
+    } finally {
+      setIsSending(false);
+    }
   };
+
+  if (isLoadingReport) {
+    return (
+      <DashboardLayout>
+        <div className="flex flex-col items-center justify-center h-[calc(100vh-2rem)] gap-3 text-muted-foreground">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <p>Loading report…</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (reportError || !report) {
+    return (
+      <DashboardLayout>
+        <div className="flex flex-col items-center justify-center h-[calc(100vh-2rem)] gap-4 text-center px-6">
+          <AlertTriangle className="w-10 h-10 text-warning" />
+          <div>
+            <h2 className="text-lg font-semibold text-foreground mb-1">
+              Couldn't load this report
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              {reportError || "The report may still be processing or was not found."}
+            </p>
+          </div>
+          <Link to="/dashboard">
+            <Button variant="outline" className="gap-2">
+              <ArrowLeft className="w-4 h-4" />
+              Back to dashboard
+            </Button>
+          </Link>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -208,8 +263,8 @@ const AnalysisReport = () => {
                   <Share2 className="w-4 h-4" />
                   Share
                 </Button>
-                <Button 
-                  size="sm" 
+                <Button
+                  size="sm"
                   className="gap-2 bg-primary text-white hover:bg-primary/90"
                   onClick={handleExportPDF}
                   disabled={isExporting}
@@ -224,17 +279,17 @@ const AnalysisReport = () => {
               <div>
                 <div className="flex items-center gap-3 mb-2">
                   <h1 className="text-2xl font-bold text-foreground">
-                    {reportData.company}
+                    {report.company}
                   </h1>
                   <span className="px-2 py-1 rounded bg-primary/10 text-primary text-sm font-medium">
-                    {reportData.ticker}
+                    {report.ticker}
                   </span>
                   <span className="text-sm text-muted-foreground">
-                    {reportData.exchange}
+                    {report.exchange}
                   </span>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Analysis generated on {reportData.date}
+                  Analysis generated on {formattedDate}
                 </p>
               </div>
               <div className="text-right">
@@ -244,7 +299,7 @@ const AnalysisReport = () => {
                 <div className="flex items-center gap-2">
                   <TrendingUp className="w-5 h-5 text-primary" />
                   <span className="text-3xl font-bold text-primary">
-                    {reportData.overallScore}/10
+                    {report.overall_score}/10
                   </span>
                 </div>
               </div>
@@ -261,7 +316,7 @@ const AnalysisReport = () => {
                   Executive Summary
                 </h2>
                 <p className="text-muted-foreground leading-relaxed">
-                  {reportData.summary}
+                  {report.summary}
                 </p>
               </section>
 
@@ -272,7 +327,7 @@ const AnalysisReport = () => {
                   Financial Health Scores
                 </h2>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {Object.entries(reportData.metrics).map(([key, value]) => (
+                  {Object.entries(report.metrics || {}).map(([key, value]) => (
                     <div
                       key={key}
                       className="p-4 rounded-lg bg-secondary/50 border border-border"
@@ -311,7 +366,7 @@ const AnalysisReport = () => {
                   Key Financial Ratios
                 </h2>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {reportData.keyRatios.map((ratio, index) => (
+                  {(report.key_ratios || []).map((ratio, index) => (
                     <div
                       key={index}
                       className="p-4 rounded-lg bg-secondary/50 border border-border"
@@ -338,7 +393,7 @@ const AnalysisReport = () => {
                     Strengths
                   </h2>
                   <ul className="space-y-3">
-                    {reportData.strengths.map((strength, index) => (
+                    {(report.strengths || []).map((strength, index) => (
                       <li
                         key={index}
                         className="flex items-start gap-3 text-sm text-muted-foreground"
@@ -356,7 +411,7 @@ const AnalysisReport = () => {
                     Red Flags & Concerns
                   </h2>
                   <ul className="space-y-3">
-                    {reportData.redFlags.map((flag, index) => (
+                    {(report.red_flags || []).map((flag, index) => (
                       <li
                         key={index}
                         className="flex items-start gap-3 text-sm text-muted-foreground"
@@ -376,8 +431,8 @@ const AnalysisReport = () => {
                   Investment Assessment
                 </h2>
                 <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
-                  <p className="text-muted-foreground leading-relaxed">
-                    {reportData.investmentAssessment}
+                  <p className="text-muted-foreground leading-relaxed whitespace-pre-line">
+                    {report.investment_assessment}
                   </p>
                 </div>
               </section>
@@ -419,11 +474,14 @@ const AnalysisReport = () => {
               {messages.map((message, index) => (
                 <ChatMessage
                   key={index}
-                  role={message.role as "user" | "assistant"}
+                  role={message.role}
                   content={message.content}
                   sources={message.sources}
                 />
               ))}
+              {isSending && (
+                <ChatMessage role="assistant" content="" sources={[]} isLoading />
+              )}
             </div>
           </ScrollArea>
 
@@ -435,11 +493,13 @@ const AnalysisReport = () => {
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
+                disabled={isSending}
                 className="flex-1 bg-secondary border-border"
               />
               <Button
                 size="icon"
                 onClick={handleSendMessage}
+                disabled={isSending}
                 className="bg-primary text-white hover:bg-primary/90"
               >
                 <Send className="w-4 h-4" />

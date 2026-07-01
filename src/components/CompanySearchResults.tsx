@@ -112,7 +112,7 @@ const CompanySearchResults = ({
       company.ticker.toLowerCase().includes(query.toLowerCase())
   );
 
-  const showLoading = isLoading || fetching;
+  const showLoading = isLoading;
 
   if (showLoading) {
     return (

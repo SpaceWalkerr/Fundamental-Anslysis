@@ -18,21 +18,33 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { AnalysisIllustration } from "@/components/brand/Illustrations";
+import { api } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
+
+type StepStatus = "pending" | "processing" | "completed";
+interface ProcessingStep {
+  name: string;
+  status: StepStatus;
+  progress: number;
+}
+
+const INITIAL_STEPS: ProcessingStep[] = [
+  { name: "Uploading file", status: "pending", progress: 0 },
+  { name: "Extracting text from document", status: "pending", progress: 0 },
+  { name: "Generating embeddings", status: "pending", progress: 0 },
+  { name: "Analyzing financial data", status: "pending", progress: 0 },
+  { name: "Generating report", status: "pending", progress: 0 },
+];
 
 const NewAnalysis = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [dragActive, setDragActive] = useState(false);
-  const [processingSteps, setProcessingSteps] = useState([
-    { name: "Uploading file", status: "pending" as const, progress: 0 },
-    { name: "Extracting text from document", status: "pending" as const, progress: 0 },
-    { name: "Generating embeddings", status: "pending" as const, progress: 0 },
-    { name: "Analyzing financial data", status: "pending" as const, progress: 0 },
-    { name: "Generating report", status: "pending" as const, progress: 0 },
-  ]);
+  const [processingSteps, setProcessingSteps] = useState<ProcessingStep[]>(INITIAL_STEPS);
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -59,60 +71,72 @@ const NewAnalysis = () => {
     }
   };
 
-  const handleAnalyze = () => {
+  const markStep = (index: number, status: StepStatus) => {
+    setProcessingSteps((prev) =>
+      prev.map((step, i) =>
+        i === index
+          ? {
+              ...step,
+              status,
+              progress: status === "completed" ? 100 : status === "processing" ? 50 : step.progress,
+            }
+          : step
+      )
+    );
+  };
+
+  const handleAnalyze = async () => {
+    if (!selectedFile) {
+      toast({
+        title: "No file selected",
+        description: "Please choose a financial document to analyze.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsProcessing(true);
     setProgress(0);
-    
-    const stepDurations = [1500, 1800, 2000, 1500, 1200]; // ms for each step
-    let currentStep = 0;
-    let currentProgress = 0;
+    setProcessingSteps(INITIAL_STEPS);
 
-    const animateStep = () => {
-      if (currentStep >= processingSteps.length) {
-        setTimeout(() => {
-          navigate("/dashboard/report/1");
-        }, 500);
-        return;
+    // Derive a readable company name from the file name (backend also reads document metadata)
+    const companyName = selectedFile.name.replace(/\.[^/.]+$/, "");
+
+    try {
+      // 1. Upload — the backend extracts text and builds embeddings during this request
+      markStep(0, "processing");
+      const upload = await api.analysis.uploadFile(selectedFile);
+      markStep(0, "completed");
+      markStep(1, "completed");
+      markStep(2, "completed");
+      setProgress(60);
+
+      // 2. Run the AI analysis (this generates the report)
+      markStep(3, "processing");
+      markStep(4, "processing");
+      const result = await api.analysis.analyzeFile(upload.file_id, companyName, "");
+      markStep(3, "completed");
+      markStep(4, "completed");
+      setProgress(100);
+
+      if (!result.reportId) {
+        throw new Error("Analysis did not return a report id.");
       }
 
-      const stepDuration = stepDurations[currentStep];
-      const startProgress = currentProgress;
-      const startTime = Date.now();
-
-      setProcessingSteps((prev) => {
-        const newSteps = [...prev];
-        newSteps[currentStep].status = "processing";
-        return newSteps;
+      // 3. Open the finished report
+      setTimeout(() => navigate(`/dashboard/report/${result.reportId}`), 400);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Analysis failed. Please try again.";
+      toast({
+        title: "Analysis failed",
+        description: message,
+        variant: "destructive",
       });
-
-      const progressInterval = setInterval(() => {
-        const elapsed = Date.now() - startTime;
-        const stepProgress = Math.min((elapsed / stepDuration) * 100, 100);
-        const totalProgress = (currentStep * 20) + (stepProgress / 5);
-
-        setProgress(totalProgress);
-        setProcessingSteps((prev) => {
-          const newSteps = [...prev];
-          newSteps[currentStep].progress = stepProgress;
-          return newSteps;
-        });
-
-        if (elapsed >= stepDuration) {
-          clearInterval(progressInterval);
-          setProcessingSteps((prev) => {
-            const newSteps = [...prev];
-            newSteps[currentStep].status = "completed";
-            newSteps[currentStep].progress = 100;
-            return newSteps;
-          });
-          currentProgress = (currentStep + 1) * 20;
-          currentStep++;
-          setTimeout(animateStep, 300);
-        }
-      }, 50);
-    };
-
-    animateStep();
+      setIsProcessing(false);
+      setProgress(0);
+      setProcessingSteps(INITIAL_STEPS);
+    }
   };
 
   return (
@@ -176,8 +200,12 @@ const NewAnalysis = () => {
             <div className="mt-6">
               <CompanySearchResults
                 query={searchQuery}
-                onAnalyze={(company) => {
-                  handleAnalyze();
+                onAnalyze={() => {
+                  toast({
+                    title: "Upload required",
+                    description:
+                      "Analysis currently runs on uploaded financial documents. Please upload a report below.",
+                  });
                 }}
               />
             </div>

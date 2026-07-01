@@ -147,7 +147,8 @@ async def start_analysis(
         
         document_text = ""
         company_name = ""
-        
+        ticker = request.company_ticker or "N/A"
+
         # Add file or company info
         if request.file_id:
             # Verify file belongs to user and get extracted text
@@ -166,7 +167,7 @@ async def start_analysis(
             
             report_record['source_document_id'] = request.file_id
             document_text = file_result.data.get('extracted_text', '')
-            company_name = file_result.data.get('metadata', {}).get('company_name', 'Unknown Company')
+            company_name = request.company_name or file_result.data.get('metadata', {}).get('company_name', 'Unknown Company')
             
             if not document_text:
                 raise HTTPException(
@@ -196,24 +197,43 @@ async def start_analysis(
             .eq('id', report_id)\
             .execute()
         
-        # Initialize AI analyzer
-        analyzer = AIAnalyzer()
-        
-        # Perform AI analysis (this may take a few seconds)
+        # Initialize AI analyzer (prefer whichever provider has an API key configured)
+        provider = "openai" if settings.OPENAI_API_KEY else ("anthropic" if settings.ANTHROPIC_API_KEY else "openai")
+        analyzer = AIAnalyzer(provider=provider)
+
+        if not analyzer.is_available():
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="AI service not configured. Please set OPENAI_API_KEY or ANTHROPIC_API_KEY."
+            )
+
+        # Perform AI analysis in a worker thread (the SDK calls are blocking)
         analysis_result = await asyncio.to_thread(
             analyzer.analyze_financial_document,
-            document_text=document_text,
+            extracted_text=document_text,
             company_name=company_name,
-            use_openai=(settings.OPENAI_API_KEY is not None and settings.OPENAI_API_KEY != "")
+            ticker=ticker,
         )
-        
-        # Update report with analysis results
+
+        # Surface AI-side failures instead of storing a broken report as "completed"
+        if not analysis_result.get("success"):
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=analysis_result.get("error", "AI analysis failed")
+            )
+
+        # Persist the full result plus the summary columns used by list/report views
         update_data = {
             "status": ProcessingStatus.COMPLETED.value,
             "analysis_result": analysis_result,
+            "company": analysis_result.get("company", company_name),
+            "ticker": analysis_result.get("ticker", ticker),
+            "exchange": analysis_result.get("exchange"),
+            "overall_score": analysis_result.get("overall_score"),
+            "summary": analysis_result.get("summary"),
             "completed_at": datetime.utcnow().isoformat()
         }
-        
+
         db.table('reports')\
             .update(update_data)\
             .eq('id', report_id)\

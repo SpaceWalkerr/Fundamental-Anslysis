@@ -35,6 +35,11 @@ openpyxl==3.1.5
 pandas==2.2.3
 Pillow==11.0.0
 
+# PDF Generation (HTML -> PDF). WeasyPrint needs native libs (pango, cairo,
+# gdk-pixbuf); it is imported lazily so a missing lib won't crash the API.
+weasyprint==62.3
+jinja2==3.1.4
+
 # Redis & Caching
 redis==5.0.1
 celery==5.3.6
