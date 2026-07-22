@@ -1,17 +1,18 @@
 import { useState, useEffect } from "react";
 import { Link, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
+import { usePlanStore } from "@/store/usePlanStore";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import ChatMessage from "@/components/ChatMessage";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
-import { api, downloadBlob } from "@/lib/api";
+import { api } from "@/lib/api";
+import { exportReportPdf } from "@/lib/helpers";
 import {
   ArrowLeft,
   Download,
-  Share2,
   Send,
   TrendingUp,
   AlertTriangle,
@@ -21,6 +22,7 @@ import {
   DollarSign,
   BarChart3,
   PieChart,
+  Sparkles,
   Loader2,
 } from "lucide-react";
 
@@ -44,11 +46,19 @@ interface Report {
   date: string;
   overall_score: number;
   summary: string;
+  plain_english?: string;
   metrics: Record<string, MetricValue>;
   key_ratios: KeyRatio[];
   strengths: string[];
   red_flags: string[];
   investment_assessment: string;
+  // Pro-only deeper sections (present when generated on a paid plan)
+  personalized_take?: string;
+  bull_case?: string[];
+  bear_case?: string[];
+  what_to_watch?: string[];
+  peer_context?: string;
+  data_confidence?: { score?: number; note?: string };
 }
 
 interface ChatSource {
@@ -77,6 +87,7 @@ const AnalysisReport = () => {
   const [report, setReport] = useState<Report | null>(null);
   const [isLoadingReport, setIsLoadingReport] = useState(true);
   const [reportError, setReportError] = useState<string | null>(null);
+  const isPro = usePlanStore((s) => s.isPro)();
 
   const [messages, setMessages] = useState<UIMessage[]>([WELCOME_MESSAGE]);
   const [inputValue, setInputValue] = useState("");
@@ -140,25 +151,14 @@ const AnalysisReport = () => {
     if (!report) return;
     setIsExporting(true);
     try {
-      const analysisData = {
-        ticker: report.ticker,
-        company_name: report.company,
-        recommendation:
-          report.overall_score >= 8 ? "BUY" : report.overall_score >= 6 ? "HOLD" : "SELL",
-        score: report.overall_score * 10,
-        strengths: report.strengths,
-        weaknesses: report.red_flags,
-        ai_summary: report.summary,
-        ai_recommendation: report.investment_assessment,
-      };
-
-      const blob = await api.pdf.exportAnalysis(report.ticker, analysisData);
-      downloadBlob(blob, `analysis_${report.ticker}.pdf`);
-
-      toast({
-        title: "PDF Exported",
-        description: "Your analysis report has been downloaded successfully.",
-      });
+      // Pro-gated inside the shared helper (free users get the upgrade modal).
+      const result = await exportReportPdf(report);
+      if (result === "ok") {
+        toast({
+          title: "PDF Exported",
+          description: "Your analysis report has been downloaded successfully.",
+        });
+      }
     } catch (error) {
       toast({
         title: "Export Failed",
@@ -259,10 +259,6 @@ const AnalysisReport = () => {
                 </Button>
               </Link>
               <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" className="gap-2">
-                  <Share2 className="w-4 h-4" />
-                  Share
-                </Button>
                 <Button
                   size="sm"
                   className="gap-2 bg-primary text-white hover:bg-primary/90"
@@ -309,6 +305,17 @@ const AnalysisReport = () => {
           {/* Scrollable Content */}
           <ScrollArea className="flex-1">
             <div className="p-6 space-y-8">
+              {/* The verdict — one line anyone can grasp instantly */}
+              {report.plain_english && (
+                <section className="p-4 rounded-xl bg-primary/5 border border-primary/20 flex items-start gap-3">
+                  <Sparkles className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wider text-primary mb-1">The bottom line</p>
+                    <p className="text-foreground font-medium leading-relaxed">{report.plain_english}</p>
+                  </div>
+                </section>
+              )}
+
               {/* Executive Summary */}
               <section>
                 <h2 className="text-lg font-bold text-foreground mb-3 flex items-center gap-2">
@@ -319,6 +326,17 @@ const AnalysisReport = () => {
                   {report.summary}
                 </p>
               </section>
+
+              {/* Personalized take (Pro) */}
+              {report.personalized_take && (
+                <section className="p-5 rounded-xl bg-secondary/40 border border-border">
+                  <h2 className="text-base font-bold text-foreground mb-2 flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-primary" />
+                    Written for how you invest
+                  </h2>
+                  <p className="text-muted-foreground leading-relaxed">{report.personalized_take}</p>
+                </section>
+              )}
 
               {/* Score Cards */}
               <section>
@@ -423,6 +441,71 @@ const AnalysisReport = () => {
                   </ul>
                 </section>
               </div>
+
+              {/* Bull vs Bear (Pro) */}
+              {(report.bull_case?.length || report.bear_case?.length) && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {report.bull_case?.length ? (
+                    <section className="p-5 rounded-xl bg-success/5 border border-success/20">
+                      <h2 className="text-base font-bold text-foreground mb-3">🐂 Bull case</h2>
+                      <ul className="space-y-2">
+                        {report.bull_case.map((b, i) => (
+                          <li key={i} className="text-sm text-muted-foreground flex gap-2">
+                            <span className="text-success font-bold">+</span> {b}
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+                  ) : null}
+                  {report.bear_case?.length ? (
+                    <section className="p-5 rounded-xl bg-destructive/5 border border-destructive/20">
+                      <h2 className="text-base font-bold text-foreground mb-3">🐻 Bear case</h2>
+                      <ul className="space-y-2">
+                        {report.bear_case.map((b, i) => (
+                          <li key={i} className="text-sm text-muted-foreground flex gap-2">
+                            <span className="text-destructive font-bold">−</span> {b}
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+                  ) : null}
+                </div>
+              )}
+
+              {/* What to watch (Pro) */}
+              {report.what_to_watch?.length ? (
+                <section>
+                  <h2 className="text-lg font-bold text-foreground mb-3 flex items-center gap-2">
+                    <BarChart3 className="w-5 h-5 text-primary" />
+                    What to watch next quarter
+                  </h2>
+                  <ul className="space-y-2">
+                    {report.what_to_watch.map((w, i) => (
+                      <li key={i} className="flex items-start gap-3 text-sm text-muted-foreground">
+                        <span className="w-5 h-5 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center flex-shrink-0">{i + 1}</span>
+                        {w}
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
+
+              {/* Pro upsell teaser — shown when the report has no deep sections (free plan) */}
+              {!isPro && !report.bull_case?.length && (
+                <section
+                  className="p-5 rounded-xl border border-dashed border-primary/30 bg-primary/5 cursor-pointer hover:bg-primary/10 transition-colors"
+                  onClick={() => usePlanStore.getState().openUpgrade("general")}
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <Sparkles className="w-4 h-4 text-primary" />
+                    <span className="text-sm font-bold text-foreground">Unlock the full analyst view with Pro</span>
+                    <span className="ml-auto text-[10px] font-extrabold px-2 py-0.5 rounded bg-gradient-to-br from-amber-500 to-amber-600 text-white">PRO</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    A personalised take written for how <em>you</em> invest, a full bull vs bear breakdown, what to watch next quarter, and one-click PDF export. <span className="text-primary font-semibold">Upgrade →</span>
+                  </p>
+                </section>
+              )}
 
               {/* Investment Assessment */}
               <section>

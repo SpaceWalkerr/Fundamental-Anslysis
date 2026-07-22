@@ -127,11 +127,19 @@ async def start_analysis(
     Start financial analysis on uploaded file or company ticker
     This performs AI-powered analysis and generates a report
     """
-    # Check usage limits
-    if current_user['reports_used'] >= current_user['reports_limit']:
+    # Token metering: a full report needs a minimum balance to attempt.
+    from app.utils.token_wallet import get_wallet, deduct as deduct_tokens
+    MIN_TOKENS_FOR_REPORT = 20_000
+    _tier = current_user.get("plan", "free")
+    _wallet = get_wallet(current_user['id'], _tier)
+    if _wallet.get("balance", 0) < MIN_TOKENS_FOR_REPORT:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Report limit reached. Upgrade your plan to continue."
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+            detail=(
+                "You're out of AI tokens. "
+                + ("Upgrade to Pro for a much larger monthly allowance." if _tier == "free"
+                   else "Top up your tokens to keep analysing.")
+            ),
         )
     
     # Generate report ID
@@ -197,23 +205,43 @@ async def start_analysis(
             .eq('id', report_id)\
             .execute()
         
-        # Initialize AI analyzer (prefer whichever provider has an API key configured)
-        provider = "openai" if settings.OPENAI_API_KEY else ("anthropic" if settings.ANTHROPIC_API_KEY else "openai")
-        analyzer = AIAnalyzer(provider=provider)
-
-        if not analyzer.is_available():
+        # Provider order: Claude (primary) → GPT-4o (secondary/fallback).
+        # We try the primary first and fall back only if it's unconfigured or
+        # errors, so a transient outage on one provider doesn't break analysis.
+        provider_order = []
+        if settings.ANTHROPIC_API_KEY:
+            provider_order.append("anthropic")
+        if settings.OPENAI_API_KEY:
+            provider_order.append("openai")
+        if not provider_order:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="AI service not configured. Please set OPENAI_API_KEY or ANTHROPIC_API_KEY."
+                detail="AI service not configured. Please set ANTHROPIC_API_KEY (primary) or OPENAI_API_KEY (fallback)."
             )
 
-        # Perform AI analysis in a worker thread (the SDK calls are blocking)
-        analysis_result = await asyncio.to_thread(
-            analyzer.analyze_financial_document,
-            extracted_text=document_text,
-            company_name=company_name,
-            ticker=ticker,
-        )
+        analysis_result = None
+        last_error = "AI analysis failed"
+        for prov in provider_order:
+            analyzer = AIAnalyzer(provider=prov)
+            if not analyzer.is_available():
+                continue
+            analysis_result = await asyncio.to_thread(
+                analyzer.analyze_financial_document,
+                extracted_text=document_text,
+                company_name=company_name,
+                ticker=ticker,
+                investor_style=(request.investor_style or "balanced"),
+                horizon=(request.horizon or "long_term"),
+                tier=current_user.get("plan", "free"),
+                region=request.region,
+            )
+            if analysis_result and analysis_result.get("success"):
+                analysis_result["provider"] = prov
+                break
+            last_error = (analysis_result or {}).get("error", last_error)
+
+        if not analysis_result:
+            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=last_error)
 
         # Surface AI-side failures instead of storing a broken report as "completed"
         if not analysis_result.get("success"):
@@ -221,6 +249,12 @@ async def start_analysis(
                 status_code=status.HTTP_502_BAD_GATEWAY,
                 detail=analysis_result.get("error", "AI analysis failed")
             )
+
+        # Meter the real token cost of this report against the user's wallet.
+        _tokens_used = int(analysis_result.get("tokens_used", 0) or 0) or MIN_TOKENS_FOR_REPORT
+        _wallet_after = deduct_tokens(current_user['id'], _tokens_used, _tier)
+        analysis_result["tokens_charged"] = _tokens_used
+        analysis_result["token_balance"] = _wallet_after.get("balance", 0)
 
         # Persist the full result plus the summary columns used by list/report views
         update_data = {

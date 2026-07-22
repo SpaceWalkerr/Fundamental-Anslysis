@@ -106,6 +106,10 @@ export const authApi = {
       user: data,
     };
   },
+
+  deleteAccount: async () => {
+    return await fetchWithAuth('/api/auth/me', { method: 'DELETE' });
+  },
 };
 
 // Real API service for financial analysis
@@ -133,13 +137,21 @@ export const analysisApi = {
     return response.json();
   },
 
-  analyzeFile: async (fileId: string | null, company: string, ticker: string) => {
+  analyzeFile: async (
+    fileId: string | null,
+    company: string,
+    ticker: string,
+    opts?: { investorStyle?: string; horizon?: string; region?: string }
+  ) => {
     const data = await fetchWithAuth('/api/analysis/analyze', {
       method: 'POST',
       body: JSON.stringify({
         file_id: fileId,
         company_name: company,
         company_ticker: ticker,
+        investor_style: opts?.investorStyle || 'balanced',
+        horizon: opts?.horizon || 'long_term',
+        region: opts?.region,
       }),
     });
 
@@ -163,6 +175,10 @@ export const analysisApi = {
     return await fetchWithAuth(`/api/reports/list?limit=${limit}&offset=${offset}`);
   },
 
+  deleteReport: async (reportId: string) => {
+    return await fetchWithAuth(`/api/reports/${reportId}`, { method: 'DELETE' });
+  },
+
   searchCompany: async (query: string) => {
     const data = await fetchWithAuth(`/api/stocks/search?query=${encodeURIComponent(query)}`);
     return data.results || [];
@@ -181,12 +197,6 @@ export const stockApi = {
       body: JSON.stringify(filters),
     });
     return data.results || [];
-  },
-
-  getWatchlist: async () => {
-    // TODO: Implement watchlist endpoint in backend
-    // For now return empty array
-    return [];
   },
 
   getTechnicalIndicators: async (ticker: string, period: string = '1y', includeSignals: boolean = false) => {
@@ -387,6 +397,31 @@ export const portfolioApi = {
     return await fetchWithAuth(`/api/portfolios/portfolios/${portfolioId}/holdings/${ticker}`);
   },
 
+  // Direct add/update of a holding — any asset (stock | gold | cash | other)
+  addHolding: async (portfolioId: string, holding: {
+    asset_type: 'stock' | 'gold' | 'cash' | 'other';
+    ticker: string;
+    company_name?: string;
+    quantity: number;
+    avg_cost_basis?: number;
+    purchase_date?: string;
+    live_ticker?: string;
+    manual_price?: number;
+    currency?: string;
+    notes?: string;
+  }) => {
+    return await fetchWithAuth(`/api/portfolios/portfolios/${portfolioId}/holdings`, {
+      method: 'POST',
+      body: JSON.stringify(holding),
+    });
+  },
+
+  deleteHolding: async (portfolioId: string, ticker: string) => {
+    return await fetchWithAuth(`/api/portfolios/portfolios/${portfolioId}/holdings/${encodeURIComponent(ticker)}`, {
+      method: 'DELETE',
+    });
+  },
+
   updateHoldingNotes: async (portfolioId: string, ticker: string, notes: string) => {
     return await fetchWithAuth(`/api/portfolios/portfolios/${portfolioId}/holdings/${ticker}`, {
       method: 'PATCH',
@@ -564,52 +599,58 @@ export const watchlistApi = {
 };
 
 // Subscription/Payment API
-export const subscriptionApi = {
-  // Get available subscription plans
-  getPlans: async () => {
-    return await fetchWithAuth('/api/subscription-plans');
+// AI token wallet + top-up packs
+export const tokenApi = {
+  getWallet: async () => {
+    return await fetchWithAuth('/api/tokens/wallet');
   },
-
-  // Get current subscription status
-  getStatus: async () => {
-    return await fetchWithAuth('/api/subscription/status');
+  getPacks: async () => {
+    return await fetchWithAuth('/api/tokens/packs');
   },
-
-  // Get usage for specific feature
-  getUsage: async (type: string) => {
-    return await fetchWithAuth(`/api/subscription/usage/${type}`);
-  },
-
-  // Create checkout session
-  createCheckout: async (priceId: string, billingCycle: string) => {
-    return await fetchWithAuth('/api/subscription/checkout', {
+  createOrder: async (packId: string, currency: string, region?: string) => {
+    return await fetchWithAuth('/api/tokens/order', {
       method: 'POST',
-      body: JSON.stringify({ price_id: priceId, billing_cycle: billingCycle }),
+      body: JSON.stringify({ pack_id: packId, currency, region }),
     });
   },
-
-  // Create portal session
-  createPortal: async (returnUrl: string) => {
-    return await fetchWithAuth('/api/subscription/portal', {
+  verify: async (payload: {
+    pack_id: string;
+    currency: string;
+    region?: string;
+    razorpay_order_id: string;
+    razorpay_payment_id: string;
+    razorpay_signature: string;
+  }) => {
+    return await fetchWithAuth('/api/tokens/verify', {
       method: 'POST',
-      body: JSON.stringify({ return_url: returnUrl }),
+      body: JSON.stringify(payload),
     });
   },
+};
 
-  // Cancel subscription
-  cancelSubscription: async (subscriptionId: string) => {
-    return await fetchWithAuth('/api/subscription/cancel', {
+// Razorpay Pro subscription
+export const razorpayApi = {
+  createOrder: async (planId: string, currency: string, region?: string) => {
+    return await fetchWithAuth('/api/razorpay/order', {
       method: 'POST',
-      body: JSON.stringify({ subscription_id: subscriptionId }),
+      body: JSON.stringify({ plan_id: planId, currency, region }),
     });
   },
-
-  // Check feature access
-  checkFeature: async (featureName: string) => {
-    return await fetchWithAuth('/api/subscription/check-feature', {
+  verify: async (payload: {
+    plan_id: string;
+    currency: string;
+    region?: string;
+    razorpay_order_id: string;
+    razorpay_payment_id: string;
+    razorpay_signature: string;
+  }) => {
+    return await fetchWithAuth('/api/razorpay/verify', {
       method: 'POST',
-      body: JSON.stringify({ feature_name: featureName }),
+      body: JSON.stringify(payload),
     });
+  },
+  getPlan: async () => {
+    return await fetchWithAuth('/api/razorpay/plan');
   },
 };
 
@@ -622,5 +663,6 @@ export const api = {
   pdf: pdfApi,
   portfolio: portfolioApi,
   watchlists: watchlistApi,
-  subscription: subscriptionApi,
+  razorpay: razorpayApi,
+  tokens: tokenApi,
 };

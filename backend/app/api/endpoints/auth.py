@@ -6,12 +6,13 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from supabase import Client
 from datetime import timedelta
 
-from app.db.database import get_db
+from app.db.database import get_db, get_supabase_admin_client
 from app.models.schemas import (
     UserRegister,
     UserLogin,
     Token,
     UserResponse,
+    ProfileUpdate,
 )
 from app.core.security import (
     get_password_hash,
@@ -173,6 +174,91 @@ async def get_current_user_profile(
     Get current user profile
     """
     return UserResponse(**current_user)
+
+
+@router.patch("/me", response_model=UserResponse)
+async def update_current_user_profile(
+    updates: ProfileUpdate,
+    current_user: dict = Depends(get_current_active_user),
+):
+    """
+    Update the logged-in user's editable profile fields (name, avatar_url).
+    Writes via the service-role client so it works regardless of RLS.
+    """
+    user_id = current_user["id"]
+    payload: dict = {}
+    if updates.name is not None:
+        name = updates.name.strip()
+        if not (1 <= len(name) <= 80):
+            raise HTTPException(status_code=400, detail="Name must be 1–80 characters")
+        payload["name"] = name
+    if updates.avatar_url is not None:
+        payload["avatar_url"] = updates.avatar_url.strip() or None
+
+    if not payload:
+        raise HTTPException(status_code=400, detail="No fields to update")
+
+    admin = get_supabase_admin_client()
+    try:
+        admin.table("users").update(payload).eq("id", user_id).execute()
+        res = admin.table("users").select("*").eq("id", user_id).single().execute()
+        row = res.data or {}
+    except Exception as e:  # pragma: no cover
+        raise HTTPException(status_code=500, detail=f"Failed to update profile: {e}")
+
+    merged = {**current_user, **row}
+    return UserResponse(**merged)
+
+
+@router.delete("/me")
+async def delete_current_user(
+    current_user: dict = Depends(get_current_active_user),
+):
+    """
+    Permanently delete the user's account and all their data.
+
+    FK constraints cascade from auth.users, but we also best-effort delete the
+    top-level user-owned tables first so nothing is orphaned if a cascade is
+    ever missing. Deleting the auth user is the authoritative, final step.
+    """
+    user_id = current_user["id"]
+    admin = get_supabase_admin_client()
+
+    def _safe(fn, label):
+        try:
+            fn()
+        except Exception as e:  # pragma: no cover
+            print(f"[delete_account] {label} cleanup failed: {e}")
+
+    # Reports (cascades chat_messages + source_documents).
+    _safe(lambda: admin.table("reports").delete().eq("user_id", user_id).execute(), "reports")
+    # Portfolios (cascades holdings/transactions/snapshots/performance).
+    _safe(lambda: admin.table("portfolios").delete().eq("user_id", user_id).execute(), "portfolios")
+    # Watchlists new + legacy (cascades watchlist_items/snapshots).
+    _safe(lambda: admin.table("watchlists").delete().eq("user_id", user_id).execute(), "watchlists")
+    _safe(lambda: admin.table("watchlist").delete().eq("user_id", user_id).execute(), "watchlist")
+    # Alerts + notifications.
+    _safe(lambda: admin.table("price_alerts").delete().eq("user_id", user_id).execute(), "price_alerts")
+    _safe(lambda: admin.table("signal_alerts").delete().eq("user_id", user_id).execute(), "signal_alerts")
+    _safe(lambda: admin.table("notifications").delete().eq("user_id", user_id).execute(), "notifications")
+    # Wallet + payment records.
+    _safe(lambda: admin.table("ai_wallets").delete().eq("user_id", user_id).execute(), "ai_wallets")
+    _safe(lambda: admin.table("token_pack_purchases").delete().eq("user_id", user_id).execute(), "token_pack_purchases")
+    _safe(lambda: admin.table("pro_payments").delete().eq("user_id", user_id).execute(), "pro_payments")
+    _safe(lambda: admin.table("subscriptions").delete().eq("user_id", user_id).execute(), "subscriptions")
+    _safe(lambda: admin.table("payment_history").delete().eq("user_id", user_id).execute(), "payment_history")
+    _safe(lambda: admin.table("feature_usage").delete().eq("user_id", user_id).execute(), "feature_usage")
+    # Profile row.
+    _safe(lambda: admin.table("users").delete().eq("id", user_id).execute(), "users")
+
+    # Authoritative: remove the auth user (cascades anything left).
+    try:
+        admin.auth.admin.delete_user(user_id)
+    except Exception as e:
+        print(f"[delete_account] auth user delete failed: {e}")
+        raise HTTPException(status_code=500, detail="Could not fully delete account. Contact support.")
+
+    return {"success": True}
 
 
 @router.post("/logout")

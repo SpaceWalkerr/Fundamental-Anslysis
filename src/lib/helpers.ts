@@ -173,6 +173,55 @@ export const copyToClipboard = async (text: string): Promise<boolean> => {
 };
 
 /**
+ * A report with the fields needed to render a PDF (superset of the list item;
+ * the full report from `getReport` supplies the analysis text).
+ */
+export interface ExportableReport {
+  ticker: string;
+  company: string;
+  overall_score: number;
+  summary?: string;
+  strengths?: string[];
+  red_flags?: string[];
+  investment_assessment?: string;
+}
+
+/**
+ * Shared PDF export flow used by both the report page and History.
+ * Pro-gated (free users get the upgrade modal). Returns 'gated' if the
+ * upgrade modal was shown, 'ok' if a PDF was downloaded. Throws on API error
+ * so callers can surface a toast.
+ */
+export const exportReportPdf = async (
+  report: ExportableReport
+): Promise<'gated' | 'ok'> => {
+  // Imported lazily to avoid a circular import (store/api ↔ helpers).
+  const { usePlanStore } = await import('@/store/usePlanStore');
+  const { api, downloadBlob } = await import('@/lib/api');
+
+  if (!usePlanStore.getState().isPro()) {
+    usePlanStore.getState().openUpgrade('export');
+    return 'gated';
+  }
+
+  const analysisData = {
+    ticker: report.ticker,
+    company_name: report.company,
+    recommendation:
+      report.overall_score >= 8 ? 'BUY' : report.overall_score >= 6 ? 'HOLD' : 'SELL',
+    score: report.overall_score * 10,
+    strengths: report.strengths,
+    weaknesses: report.red_flags,
+    ai_summary: report.summary,
+    ai_recommendation: report.investment_assessment,
+  };
+
+  const blob = await api.pdf.exportAnalysis(report.ticker, analysisData);
+  downloadBlob(blob, `analysis_${report.ticker}.pdf`);
+  return 'ok';
+};
+
+/**
  * Utility function to download data as file
  */
 export const downloadFile = (data: string, filename: string, mimeType: string): void => {

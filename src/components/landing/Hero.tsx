@@ -32,17 +32,26 @@ const Hero = () => {
   ];
 
   return (
-    <section className="min-h-screen flex items-center justify-center bg-[#F2F6F9] pt-20 px-4">
+    <section className="min-h-[92vh] flex flex-col items-center justify-center bg-[#F2F6F9] pt-24 pb-16 px-4">
       <div className="w-full max-w-[700px] flex flex-col items-center">
-        
+
+        {/* Trust eyebrow */}
+        <div className="inline-flex items-center gap-2 mb-6 px-3 py-1 rounded-full bg-primary/10 border border-primary/20">
+          <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+          <span className="text-[12px] font-semibold tracking-wide text-primary uppercase">
+            AI-Powered Equity Research
+          </span>
+        </div>
+
         {/* App Logo */}
         <div className="flex items-center justify-center mb-6">
           <Logo size="xl" />
         </div>
 
         {/* Subtitle */}
-        <p className="text-[17px] text-[#4a4a4a] mb-10 text-center">
-          Institutional-Grade Fundamental Analysis for Everyone.
+        <p className="text-[17px] text-[#4a4a4a] mb-10 text-center max-w-[560px]">
+          Institutional-grade fundamental analysis for everyone. Search any company and
+          get a deep, AI-written research report in seconds — free to start.
         </p>
 
         {/* Search Bar Container */}
@@ -86,7 +95,7 @@ const Hero = () => {
                   setQuery(pill);
                   setIsFocused(true);
                 }}
-                className="px-3 py-1.5 bg-transparent border border-[#d1d5db] text-[#6b7280] text-[13px] rounded hover:bg-gray-50 transition-colors"
+                className="px-3 py-1.5 bg-transparent border border-[#d1d5db] text-[#6b7280] text-[13px] rounded hover:border-primary hover:text-primary transition-colors"
               >
                 {pill}
               </button>
@@ -94,7 +103,32 @@ const Hero = () => {
           </div>
         </div>
 
+        {/* Trust indicators */}
+        <div className="mt-10 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-[13px] text-[#6b7280]">
+          <span className="flex items-center gap-1.5">
+            <span className="text-primary font-bold">✓</span> No credit card to start
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="text-primary font-bold">✓</span> 5 free reports / month
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="text-primary font-bold">✓</span> Global &amp; Indian markets
+          </span>
+        </div>
+
       </div>
+
+      {/* Scroll cue */}
+      <a
+        href="/#features"
+        aria-label="See how it works"
+        className="mt-12 flex flex-col items-center gap-1 text-[#9ca3af] hover:text-primary transition-colors animate-bounce"
+      >
+        <span className="text-[11px] font-medium uppercase tracking-wider">See how it works</span>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </a>
     </section>
   );
 };

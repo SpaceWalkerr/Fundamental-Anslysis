@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 import time
 
 from app.core.config import settings
-from app.api.endpoints import auth, analysis, chat, stocks, reports, alerts, market_ws, history, technicals, payments, portfolios, watchlists, pdf_export
+from app.api.endpoints import auth, analysis, chat, stocks, reports, alerts, market_ws, history, technicals, payments, portfolios, watchlists, pdf_export, razorpay_payments, tokens
 from app.db.database import init_db
 from app.utils.market_data_streamer import get_market_streamer, get_alert_checker
 
@@ -33,7 +33,18 @@ async def lifespan(app: FastAPI):
     alert_checker = get_alert_checker(get_supabase_client())
     await alert_checker.start()
     print("🔔 Price alert checker started")
-    
+
+    # Scheduled stock-data refresh (off by default; enable via env in prod)
+    stock_scheduler = None
+    if settings.STOCK_REFRESH_ENABLED:
+        from app.utils.stock_pipeline import StockRefreshScheduler
+        stock_scheduler = StockRefreshScheduler(
+            interval_hours=settings.STOCK_REFRESH_INTERVAL_HOURS,
+            run_on_startup=settings.STOCK_REFRESH_ON_STARTUP,
+        )
+        await stock_scheduler.start()
+        print(f"🗓️  Stock refresh scheduled every {settings.STOCK_REFRESH_INTERVAL_HOURS}h")
+
     print(f"📊 Environment: {settings.ENVIRONMENT}")
     print(f"🔐 Debug mode: {settings.DEBUG}")
     
@@ -43,6 +54,8 @@ async def lifespan(app: FastAPI):
     print("👋 Shutting down FundaKaMental API...")
     await market_streamer.stop()
     await alert_checker.stop()
+    if stock_scheduler:
+        await stock_scheduler.stop()
     print("✅ Background services stopped")
 
 
@@ -125,6 +138,8 @@ app.include_router(alerts.router, prefix="/api/alerts", tags=["Alerts"])
 app.include_router(history.router, prefix="/api", tags=["Historical Data"])
 app.include_router(technicals.router, prefix="/api", tags=["Technical Analysis"])
 app.include_router(payments.router, prefix="/api", tags=["Payments"])
+app.include_router(razorpay_payments.router, prefix="/api", tags=["Razorpay Pro"])
+app.include_router(tokens.router, prefix="/api", tags=["AI Tokens"])
 app.include_router(pdf_export.router, prefix="/api/pdf", tags=["PDF Export"])
 app.include_router(portfolios.router, prefix="/api/portfolios", tags=["Portfolio Tracking"])
 app.include_router(watchlists.router, prefix="/api/watchlists", tags=["Watchlist Manager"])

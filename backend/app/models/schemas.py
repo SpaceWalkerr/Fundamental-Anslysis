@@ -41,6 +41,12 @@ class UserResponse(BaseModel):
     created_at: datetime
 
 
+class ProfileUpdate(BaseModel):
+    """Editable profile fields (all optional; at least one required)."""
+    name: Optional[str] = None
+    avatar_url: Optional[str] = None
+
+
 # ============= Analysis Models =============
 
 class FileUploadResponse(BaseModel):
@@ -69,6 +75,14 @@ class AnalysisRequest(BaseModel):
     file_id: Optional[str] = None
     company_ticker: Optional[str] = None
     company_name: Optional[str] = None
+    # Personalization: how this investor thinks, so the report speaks to them.
+    # One of: beginner | value | growth | income | trader | balanced
+    investor_style: Optional[str] = "balanced"
+    # long_term | medium | short
+    horizon: Optional[str] = "long_term"
+    # Reader's region (IN|US|GB|EU|AE|SG|GLOBAL) so the report uses the right
+    # currency symbol and market conventions. Falls back to the ticker's market.
+    region: Optional[str] = None
 
 
 class ProcessingStepResponse(BaseModel):
@@ -117,6 +131,15 @@ class AnalysisReportResponse(BaseModel):
     strengths: List[str]
     red_flags: List[str]
     investment_assessment: str
+    # Personalised one-liner verdict (all tiers when generated)
+    plain_english: Optional[str] = None
+    # Pro-only deeper sections
+    personalized_take: Optional[str] = None
+    bull_case: Optional[List[str]] = None
+    bear_case: Optional[List[str]] = None
+    what_to_watch: Optional[List[str]] = None
+    peer_context: Optional[str] = None
+    data_confidence: Optional[dict] = None
 
 
 # ============= Chat Models =============
@@ -188,6 +211,7 @@ class StockScreenerRequest(BaseModel):
     sort_by: Optional[str] = "match_score"
     sort_order: Optional[str] = "desc"
     limit: Optional[int] = 50
+    market: Optional[str] = "india"  # india | us
 
 
 class StockScreenerResult(BaseModel):

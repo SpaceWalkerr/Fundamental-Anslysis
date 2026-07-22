@@ -146,7 +146,14 @@ async def get_report(
         key_ratios=[KeyRatio(**ratio) for ratio in report_data['key_ratios']],
         strengths=report_data['strengths'],
         red_flags=report_data['red_flags'],
-        investment_assessment=report_data['investment_assessment']
+        investment_assessment=report_data['investment_assessment'],
+        plain_english=report_data.get('plain_english'),
+        personalized_take=report_data.get('personalized_take'),
+        bull_case=report_data.get('bull_case'),
+        bear_case=report_data.get('bear_case'),
+        what_to_watch=report_data.get('what_to_watch'),
+        peer_context=report_data.get('peer_context'),
+        data_confidence=report_data.get('data_confidence'),
     )
 
 

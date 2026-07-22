@@ -22,6 +22,11 @@ import History from "./pages/History";
 import Settings from "./pages/Settings";
 import Pricing from "./pages/Pricing";
 import NotFound from "./pages/NotFound";
+import UpgradeModal from "@/components/UpgradeModal";
+import ProCelebration from "@/components/ProCelebration";
+import BuyTokensModal from "@/components/BuyTokensModal";
+import RegionToast from "@/components/RegionToast";
+import { detectRegion, getRates } from "@/lib/region";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -37,6 +42,10 @@ const AppContent = () => {
 
   useEffect(() => {
     initializeAuth();
+    // Resolve region (IP → heuristic → US) and warm FX rates once, app-wide,
+    // so pricing/examples adapt and the first-visit toast can fire anywhere.
+    detectRegion();
+    getRates();
   }, [initializeAuth]);
 
   return (
@@ -45,11 +54,19 @@ const AppContent = () => {
       <Route path="/" element={<LandingPage />} />
       <Route
         path="/login"
-        element={<Login />}
+        element={
+          <ProtectedRoute requireAuth={false}>
+            <Login />
+          </ProtectedRoute>
+        }
       />
       <Route
         path="/register"
-        element={<Register />}
+        element={
+          <ProtectedRoute requireAuth={false}>
+            <Register />
+          </ProtectedRoute>
+        }
       />
       <Route
         path="/forgot-password"
@@ -148,6 +165,10 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <AppContent />
+          <UpgradeModal />
+          <BuyTokensModal />
+          <ProCelebration />
+          <RegionToast />
         </BrowserRouter>
       </TooltipProvider>
     </QueryClientProvider>
@@ -155,4 +176,3 @@ const App = () => (
 );
 
 export default App;
-/*Daksh Deploy kar dena*/

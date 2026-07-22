@@ -1,69 +1,90 @@
-﻿import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+﻿import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Check, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
-
-const plansData = [
-  {
-    name: "Free",
-    description: "Perfect for getting started",
-    price: "$0",
-    inrPrice: "₹0",
-    period: "forever",
-    features: [
-      "5 reports per month",
-      "PDF upload support",
-      "Basic financial metrics",
-      "7-day report history",
-      "Email support",
-    ],
-    cta: "Get Started",
-    popular: false,
-  },
-  {
-    name: "Premium",
-    description: "For serious investors",
-    price: "$29",
-    inrPrice: "₹2,499",
-    period: "/month",
-    features: [
-      "Unlimited reports",
-      "PDF, Excel, CSV support",
-      "Advanced ratio analysis",
-      "Interactive Q&A",
-      "Stock screener access",
-      "Unlimited history",
-      "Export to PDF",
-      "Priority support",
-    ],
-    cta: "Start Premium",
-    popular: true,
-  },
-  {
-    name: "Enterprise",
-    description: "For teams & institutions",
-    price: "Custom",
-    inrPrice: "Custom",
-    period: "",
-    features: [
-      "Everything in Premium",
-      "API access",
-      "Team collaboration",
-      "Custom integrations",
-      "Dedicated account manager",
-      "SLA guarantee",
-      "On-premise deployment",
-      "Custom training",
-    ],
-    cta: "Contact Sales",
-    popular: false,
-  },
-];
+import { usePlanStore, billingFor } from "@/store/usePlanStore";
+import { formatPrice } from "@/lib/currency";
+import { useRegion } from "@/hooks/use-region";
 
 export default function Pricing() {
   const navigate = useNavigate();
+  const openUpgrade = usePlanStore((s) => s.openUpgrade);
+  const isPro = usePlanStore((s) => s.isPro)();
+  const { region } = useRegion();
+  const bp = billingFor(region);
+
+  const plansData = [
+    {
+      name: "Free",
+      description: "Perfect for getting started",
+      price: formatPrice(0, bp.currency),
+      period: "forever",
+      subprice: "",
+      features: [
+        "5 AI reports per month",
+        "PDF upload support",
+        "Basic financial metrics",
+        "Report history",
+        "Email support",
+      ],
+      cta: "Get Started",
+      popular: false,
+    },
+    {
+      name: "Premium",
+      description: "For serious investors",
+      price: formatPrice(bp.monthly, bp.currency),
+      period: "/month",
+      subprice: `or ${formatPrice(bp.yearly, bp.currency)}/year — save 33%`,
+      features: [
+        "Unlimited AI reports",
+        "PDF, Excel, CSV support",
+        "Advanced ratio analysis",
+        "Interactive Q&A",
+        "Stock screener access",
+        "Unlimited history",
+        "PDF report exports",
+        "Priority support",
+      ],
+      cta: "Start Premium",
+      popular: true,
+    },
+    {
+      name: "Enterprise",
+      description: "For teams & institutions",
+      price: "Custom",
+      period: "",
+      subprice: "",
+      features: [
+        "Everything in Premium",
+        "API access",
+        "Team collaboration",
+        "Custom integrations",
+        "Dedicated account manager",
+        "SLA guarantee",
+        "On-premise deployment",
+        "Custom training",
+      ],
+      cta: "Contact Sales",
+      popular: false,
+    },
+  ];
+
+  const handleCta = (planName: string) => {
+    if (planName === "Free") {
+      navigate("/dashboard");
+    } else if (planName === "Premium") {
+      if (isPro) {
+        navigate("/dashboard");
+      } else {
+        openUpgrade("general");
+      }
+    } else {
+      // Enterprise — route to contact / mailto
+      window.location.href = "mailto:sales@fundakamental.in?subject=Enterprise%20plan%20enquiry";
+    }
+  };
 
   return (
     <DashboardLayout>
@@ -126,10 +147,9 @@ export default function Pricing() {
                   </span>
                   <span className="text-muted-foreground">{plan.period}</span>
                 </div>
-                <p className="text-xs text-muted-foreground mt-2">
-                  INR: {plan.inrPrice}
-                  {plan.period ? plan.period : ""}
-                </p>
+                {plan.subprice && (
+                  <p className="text-xs text-primary font-medium mt-2">{plan.subprice}</p>
+                )}
               </div>
 
               {/* Features */}
@@ -146,7 +166,7 @@ export default function Pricing() {
 
               {/* CTA */}
               <Button
-                onClick={() => navigate("/dashboard")}
+                onClick={() => handleCta(plan.name)}
                 className={`w-full rounded-full ${
                   plan.popular
                     ? "bg-primary hover:bg-primary/90 text-white"
@@ -154,7 +174,7 @@ export default function Pricing() {
                 }`}
                 size="lg"
               >
-                {plan.cta}
+                {plan.name === "Premium" && isPro ? "Current Plan" : plan.cta}
               </Button>
             </motion.div>
           ))}

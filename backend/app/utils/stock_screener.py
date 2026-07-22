@@ -25,7 +25,8 @@ class StockScreener:
         sort_by: str = "market_cap",
         sort_order: str = "desc",
         limit: int = 100,
-        use_cache: bool = True
+        use_cache: bool = True,
+        market: str = "india",
     ) -> Dict:
         """
         Screen stocks based on filters
@@ -51,9 +52,11 @@ class StockScreener:
             if cached:
                 return cached
         
-        # Build query
+        # Build query — scoped to the selected market.
         query = self.db.table('stocks').select('*').eq('is_active', True)
-        
+        if market:
+            query = query.eq('market', market)
+
         # Apply filters
         for filter_item in filters:
             query = self._apply_filter(query, filter_item)
@@ -68,7 +71,22 @@ class StockScreener:
         try:
             result = query.execute()
             stocks = result.data if result.data else []
-            
+
+            # Fallback: if the `stocks` table isn't populated yet, screen a
+            # curated sample universe so the scanner still returns real,
+            # useful results instead of an empty list.
+            if not stocks:
+                from app.utils.sample_stocks import screen_sample
+                sample = screen_sample(filters, sort_by, sort_order, limit, market=market)
+                return {
+                    "results": sample,
+                    "total_count": len(sample),
+                    "filters_applied": len(filters),
+                    "cached": False,
+                    "sample_data": True,
+                    "last_updated": datetime.utcnow().isoformat(),
+                }
+
             # Calculate additional metrics
             for stock in stocks:
                 stock['match_score'] = self._calculate_match_score(stock, filters)

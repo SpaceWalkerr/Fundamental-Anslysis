@@ -70,9 +70,20 @@ async def send_chat_message(
             for msg in history_result.data
         ]
     
+    # Token metering: a Q&A turn needs a small minimum balance.
+    from app.utils.token_wallet import get_wallet, deduct as deduct_tokens
+    _tier = current_user.get("plan", "free")
+    if get_wallet(current_user['id'], _tier).get("balance", 0) < 500:
+        raise HTTPException(
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+            detail=("You're out of AI tokens. "
+                    + ("Upgrade to Pro for a much larger allowance." if _tier == "free"
+                       else "Top up your tokens to keep asking.")),
+        )
+
     # Initialize RAG chat service
     rag_service = RAGChatService()
-    
+
     # Get AI response with RAG
     rag_response = rag_service.chat(
         question=request.message,
@@ -81,8 +92,14 @@ async def send_chat_message(
         n_context_chunks=5,
         use_openai=True  # Can be made configurable
     )
-    
+
     response_content = rag_response["answer"]
+
+    # Deduct real tokens (fall back to a length-based estimate if unavailable).
+    _chat_tokens = int(rag_response.get("tokens_used", 0) or 0)
+    if _chat_tokens <= 0:
+        _chat_tokens = max(500, (len(request.message) + len(response_content)) // 4)
+    deduct_tokens(current_user['id'], _chat_tokens, _tier)
     
     # Format sources for response
     sources_data = []

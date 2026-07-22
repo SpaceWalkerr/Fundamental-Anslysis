@@ -6,9 +6,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { api, downloadBlob } from "@/lib/api";
+import { usePlanStore } from "@/store/usePlanStore";
+import { useRegion } from "@/hooks/use-region";
+import { getRegionConfig } from "@/lib/region";
+import { Lock } from "lucide-react";
 import {
   Select,
   SelectContent,
+  SelectGroup,
+  SelectLabel,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -33,17 +39,59 @@ interface FilterItem {
   value: string;
 }
 
-const filterFields = [
-  { value: "sector", label: "Sector" },
-  { value: "market_cap", label: "Market Cap" },
-  { value: "pe_ratio", label: "P/E Ratio" },
-  { value: "revenue_growth", label: "Revenue Growth %" },
-  { value: "profit_margin", label: "Profit Margin %" },
-  { value: "roe", label: "ROE %" },
-  { value: "debt_to_equity", label: "Debt/Equity" },
-  { value: "dividend_yield", label: "Dividend Yield %" },
-  { value: "current_ratio", label: "Current Ratio" },
+// Full custom-criteria set. Users aren't limited to a handful — they can
+// screen on any of these fundamentals (grouped for readability in the picker).
+const filterFieldGroups = [
+  {
+    group: "Classification",
+    fields: [
+      { value: "sector", label: "Sector" },
+      { value: "market_cap", label: "Market Cap" },
+      { value: "price", label: "Price" },
+    ],
+  },
+  {
+    group: "Valuation",
+    fields: [
+      { value: "pe_ratio", label: "P/E Ratio" },
+      { value: "peg_ratio", label: "PEG Ratio" },
+      { value: "pb_ratio", label: "Price / Book" },
+      { value: "eps", label: "EPS" },
+      { value: "dividend_yield", label: "Dividend Yield %" },
+    ],
+  },
+  {
+    group: "Profitability",
+    fields: [
+      { value: "profit_margin", label: "Net Margin %" },
+      { value: "operating_margin", label: "Operating Margin %" },
+      { value: "roe", label: "ROE %" },
+      { value: "roa", label: "ROA %" },
+    ],
+  },
+  {
+    group: "Growth",
+    fields: [
+      { value: "revenue_growth", label: "Revenue Growth %" },
+      { value: "earnings_growth", label: "Earnings Growth %" },
+    ],
+  },
+  {
+    group: "Financial health",
+    fields: [
+      { value: "debt_to_equity", label: "Debt / Equity" },
+      { value: "current_ratio", label: "Current Ratio" },
+      { value: "quick_ratio", label: "Quick Ratio" },
+    ],
+  },
+  {
+    group: "Risk",
+    fields: [{ value: "beta", label: "Beta (volatility)" }],
+  },
 ];
+
+// Flat list for label lookups (PDF export, etc.).
+const filterFields = filterFieldGroups.flatMap((g) => g.fields);
 
 const operators = [
   { value: "gt", label: ">" },
@@ -51,6 +99,67 @@ const operators = [
   { value: "lt", label: "<" },
   { value: "lte", label: "<=" },
   { value: "eq", label: "=" },
+];
+
+// One-click "starter screens" — the way beginners actually use a screener.
+// Each loads a sensible, named strategy instead of asking a layman to build
+// filters from scratch (the Finviz / Screener.in / Simply Wall St pattern).
+interface Preset {
+  id: string;
+  name: string;
+  emoji: string;
+  tagline: string;
+  plain: string; // plain-English "what this finds"
+  filters: { field: string; operator: string; value: string }[];
+}
+
+const PRESETS: Preset[] = [
+  {
+    id: "value",
+    name: "Undervalued Gems",
+    emoji: "💎",
+    tagline: "Cheap vs earnings, still profitable",
+    plain: "Solid companies trading at a low price relative to their profits — classic value picks.",
+    filters: [
+      { field: "pe_ratio", operator: "lt", value: "20" },
+      { field: "roe", operator: "gte", value: "15" },
+      { field: "debt_to_equity", operator: "lt", value: "1" },
+    ],
+  },
+  {
+    id: "growth",
+    name: "Fast Growers",
+    emoji: "🚀",
+    tagline: "Rapid revenue growth",
+    plain: "Companies growing sales quickly with healthy margins — where tomorrow's leaders hide.",
+    filters: [
+      { field: "revenue_growth", operator: "gte", value: "20" },
+      { field: "profit_margin", operator: "gte", value: "10" },
+    ],
+  },
+  {
+    id: "quality",
+    name: "Quality Compounders",
+    emoji: "🏆",
+    tagline: "High returns, low debt",
+    plain: "Highly profitable, well-run businesses with little debt — the kind you can hold for years.",
+    filters: [
+      { field: "roe", operator: "gte", value: "20" },
+      { field: "profit_margin", operator: "gte", value: "15" },
+      { field: "debt_to_equity", operator: "lt", value: "0.5" },
+    ],
+  },
+  {
+    id: "dividend",
+    name: "Income Machines",
+    emoji: "💰",
+    tagline: "Reliable dividend payers",
+    plain: "Companies paying a healthy, well-covered dividend — steady cash in your pocket.",
+    filters: [
+      { field: "dividend_yield", operator: "gte", value: "3" },
+      { field: "current_ratio", operator: "gte", value: "1.2" },
+    ],
+  },
 ];
 
 const sectorOptions = [
@@ -126,20 +235,35 @@ const mockResults = [
 
 const StockScanner = () => {
   const { toast } = useToast();
+  const isPro = usePlanStore((s) => s.isPro)();
+  const { region } = useRegion();
   const [filters, setFilters] = useState<FilterItem[]>([
     { id: "1", field: "sector", operator: "eq", value: "Technology" },
     { id: "2", field: "market_cap", operator: "gte", value: "10000000000" },
   ]);
+  const [activePreset, setActivePreset] = useState<string | null>(null);
+  const [hasRun, setHasRun] = useState(false);
+  // Default the scanning universe to the visitor's region (India users → NSE,
+  // everyone else → US); they can still switch markets manually.
+  const [market, setMarket] = useState<"india" | "us">(getRegionConfig().market);
+  const [marketTouched, setMarketTouched] = useState(false);
+
+  // Follow the region default until the user explicitly picks a market.
+  useEffect(() => {
+    if (!marketTouched) setMarket(getRegionConfig(region).market);
+  }, [region, marketTouched]);
   const [results, setResults] = useState(mockResults);
   const [sortField, setSortField] = useState("matchScore");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [isExporting, setIsExporting] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
 
-  // Load all stocks on initial mount
+  // Pro users see live data on entry (and when the market changes); free users
+  // see the curated sample preview until they upgrade.
   useEffect(() => {
-    loadAllStocks();
-  }, []);
+    if (isPro) loadAllStocks();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPro, market]);
 
   const loadAllStocks = async () => {
     setIsScanning(true);
@@ -150,6 +274,7 @@ const StockScanner = () => {
         sort_by: "market_cap",
         sort_order: "desc",
         limit: 100,
+        market,
       });
 
       // Transform response to frontend format
@@ -198,7 +323,24 @@ const StockScanner = () => {
     );
   };
 
+  // Load a starter screen's filters. Free users can build/preview freely —
+  // the Pro gate only bites when they RUN it for live results.
+  const applyPreset = (preset: Preset) => {
+    setActivePreset(preset.id);
+    setFilters(
+      preset.filters.map((f, i) => ({ id: `${preset.id}-${i}`, ...f }))
+    );
+    setHasRun(false);
+  };
+
   const runScan = async () => {
+    // Enter-free / run-Pro: anyone can build a screen and see the sample
+    // preview, but running it against live data is the paid moment.
+    if (!isPro) {
+      usePlanStore.getState().openUpgrade("screener");
+      return;
+    }
+    setHasRun(true);
     setIsScanning(true);
     try {
       // Transform filters to backend format (remove id field)
@@ -216,6 +358,7 @@ const StockScanner = () => {
         sort_by: sortField === "matchScore" ? "match_score" : sortField === "peRatio" ? "pe_ratio" : sortField === "marketCap" ? "market_cap" : sortField,
         sort_order: sortOrder,
         limit: 100,
+        market,
       });
 
       // Transform response to frontend format (snake_case to camelCase)
@@ -342,9 +485,73 @@ const StockScanner = () => {
               Premium
             </span>
           </div>
-          <p className="text-muted-foreground">
-            Screen stocks by custom financial criteria
+          <p className="text-muted-foreground max-w-2xl">
+            A stock screener sifts through thousands of companies and surfaces only the ones
+            that match what <em>you</em> care about — cheap, fast-growing, high-quality, or
+            high-dividend. Pick a ready-made screen below, or build your own.
           </p>
+        </motion.div>
+
+        {/* Market selector — pick the universe first */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.03 }}
+          className="mb-6"
+        >
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="text-sm font-bold uppercase tracking-wide text-muted-foreground">Market</span>
+            <div className="inline-flex rounded-xl border border-border overflow-hidden">
+              {([
+                { id: "india", label: "🇮🇳 India (NSE)" },
+                { id: "us", label: "🇺🇸 United States" },
+              ] as const).map((m) => (
+                <button
+                  key={m.id}
+                  onClick={() => { setMarket(m.id); setMarketTouched(true); setActivePreset(null); }}
+                  className={`px-4 py-2 text-sm font-semibold transition-colors ${
+                    market === m.id ? "bg-primary text-white" : "bg-white text-muted-foreground hover:bg-secondary"
+                  }`}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
+            <span className="text-xs text-muted-foreground">Screens run against {market === "india" ? "Indian" : "US"} listed companies.</span>
+          </div>
+        </motion.div>
+
+        {/* Starter screens — one click, no jargon */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.05 }}
+          className="mb-6"
+        >
+          <div className="flex items-center gap-2 mb-3">
+            <Sparkles className="w-4 h-4 text-primary" />
+            <h2 className="text-sm font-bold uppercase tracking-wide text-muted-foreground">
+              Start with a proven screen
+            </h2>
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {PRESETS.map((preset) => (
+              <button
+                key={preset.id}
+                onClick={() => applyPreset(preset)}
+                className={`text-left p-4 rounded-2xl border transition-all ${
+                  activePreset === preset.id
+                    ? "border-primary bg-primary/5 shadow-sm"
+                    : "border-border bg-white hover:border-primary/40 hover:shadow-sm"
+                }`}
+              >
+                <div className="text-2xl mb-2">{preset.emoji}</div>
+                <div className="font-bold text-foreground text-sm">{preset.name}</div>
+                <div className="text-xs text-primary font-medium mb-1.5">{preset.tagline}</div>
+                <div className="text-xs text-muted-foreground leading-relaxed">{preset.plain}</div>
+              </button>
+            ))}
+          </div>
         </motion.div>
 
         {/* Filter Builder */}
@@ -375,14 +582,21 @@ const StockScanner = () => {
                   value={filter.field}
                   onValueChange={(v) => updateFilter(filter.id, "field", v)}
                 >
-                  <SelectTrigger className="w-44 bg-background">
-                    <SelectValue placeholder="Select field" />
+                  <SelectTrigger className="w-52 bg-background">
+                    <SelectValue placeholder="Select criteria" />
                   </SelectTrigger>
-                  <SelectContent>
-                    {filterFields.map((field) => (
-                      <SelectItem key={field.value} value={field.value}>
-                        {field.label}
-                      </SelectItem>
+                  <SelectContent className="max-h-80">
+                    {filterFieldGroups.map((grp) => (
+                      <SelectGroup key={grp.group}>
+                        <SelectLabel className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                          {grp.group}
+                        </SelectLabel>
+                        {grp.fields.map((field) => (
+                          <SelectItem key={field.value} value={field.value}>
+                            {field.label}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
                     ))}
                   </SelectContent>
                 </Select>
@@ -446,23 +660,33 @@ const StockScanner = () => {
             ))}
           </div>
 
-          <div className="flex items-center gap-3 mt-6">
+          <div className="flex items-center gap-3 mt-6 flex-wrap">
             <Button onClick={runScan} className="bg-primary text-white hover:bg-primary/90 gap-2" disabled={isScanning}>
-              <Play className="w-4 h-4" />
-              {isScanning ? "Scanning..." : "Run Scan"}
+              {isPro ? <Play className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+              {isScanning ? "Scanning..." : isPro ? "Run Scan" : "Run Scan on Live Data"}
             </Button>
+            {!isPro && (
+              <span className="text-[10px] font-extrabold px-2 py-1 rounded bg-gradient-to-br from-amber-500 to-amber-600 text-white">
+                PRO
+              </span>
+            )}
             <Button variant="outline" className="gap-2">
               <Save className="w-4 h-4" />
               Save Screener
             </Button>
             <Button
               variant="ghost"
-              onClick={() => setFilters([])}
+              onClick={() => { setFilters([]); setActivePreset(null); }}
               className="text-muted-foreground"
             >
               Clear All
             </Button>
           </div>
+          {!isPro && (
+            <p className="text-xs text-muted-foreground mt-3">
+              Build and preview any screen for free. <span className="font-semibold text-foreground">Pro</span> runs it live against the full market and shows every match.
+            </p>
+          )}
         </motion.div>
 
         {/* Results */}
@@ -472,21 +696,43 @@ const StockScanner = () => {
           transition={{ duration: 0.5, delay: 0.2 }}
           className="rounded-2xl bg-white border border-border overflow-hidden"
         >
-          <div className="p-4 border-b border-border flex items-center justify-between">
-            <h2 className="font-semibold text-foreground">
-              Results ({results.length} matches)
-            </h2>
+          <div className="p-4 border-b border-border flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-2">
+              <h2 className="font-semibold text-foreground">
+                {isPro ? `Results (${results.length} matches)` : "Sample results"}
+              </h2>
+              {!isPro && (
+                <span className="text-[11px] font-semibold text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">
+                  Preview — live results are Pro
+                </span>
+              )}
+            </div>
             <Button
               variant="outline"
               size="sm"
               className="gap-2"
-              onClick={handleExportPDF}
+              onClick={() => (isPro ? handleExportPDF() : usePlanStore.getState().openUpgrade("export"))}
               disabled={isExporting || results.length === 0}
             >
               <Download className="w-4 h-4" />
               {isExporting ? "Exporting..." : "Export PDF"}
             </Button>
           </div>
+
+          {/* Free-tier value banner: they see a real taste, then the unlock */}
+          {!isPro && (
+            <div
+              className="px-4 py-3 bg-primary/5 border-b border-primary/15 flex items-center gap-3 cursor-pointer hover:bg-primary/10 transition-colors"
+              onClick={() => usePlanStore.getState().openUpgrade("screener")}
+            >
+              <Sparkles className="w-4 h-4 text-primary flex-shrink-0" />
+              <p className="text-sm text-muted-foreground flex-1">
+                This is a sample of what a screen returns. <span className="font-semibold text-foreground">Go Pro</span> to
+                run this against the entire market, see every match ranked, and export the list.
+              </p>
+              <span className="text-sm font-bold text-primary whitespace-nowrap">Unlock →</span>
+            </div>
+          )}
 
           <div className="overflow-x-auto">
             <table className="w-full">

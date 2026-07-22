@@ -8,7 +8,8 @@ from functools import wraps
 from typing import Callable, Optional
 from supabase import Client
 
-from ..dependencies import get_current_user, get_supabase_client
+from ..core.security import get_current_user
+from ..db.database import get_supabase_client
 from ..utils.stripe_service import StripeService, get_stripe_service
 
 
@@ -42,7 +43,7 @@ async def require_premium(
     return current_user
 
 
-async def require_feature(feature_name: str):
+def require_feature(feature_name: str):
     """
     Factory function to create a dependency that checks for a specific feature
     
@@ -85,7 +86,7 @@ require_email_alerts = require_feature("email_alerts")
 # USAGE LIMIT DEPENDENCIES
 # ============================================================================
 
-async def check_and_increment_usage(
+def check_and_increment_usage(
     limit_type: str,
     increment: bool = True
 ):
@@ -159,7 +160,7 @@ check_pdf_limit = check_and_increment_usage("pdf_exports", increment=True)
 # COMBINED CHECKS
 # ============================================================================
 
-async def require_feature_and_usage(
+def require_feature_and_usage(
     feature_name: str,
     limit_type: str
 ):

@@ -4,13 +4,16 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Menu, X, User, ChevronDown } from "lucide-react";
 import Logo from "@/components/brand/Logo";
+import RegionSwitcher from "@/components/RegionSwitcher";
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const navLinks = [
     { name: "HOME", href: "/" },
-    { name: "LEARN", href: "/learn" },
+    { name: "FEATURES", href: "/#features" },
+    { name: "HOW IT WORKS", href: "/#how-it-works" },
+    { name: "PRICING", href: "/#pricing" },
   ];
 
   return (
@@ -37,6 +40,7 @@ const Header = () => {
 
           {/* Right Navigation */}
           <div className="hidden md:flex items-center gap-4">
+            <RegionSwitcher />
             <Link to="/login">
               <Button variant="outline" className="text-zinc-600 border-zinc-200 hover:bg-white text-[13px] font-semibold tracking-wide px-4 h-[38px] rounded shadow-sm bg-white">
                 <User className="w-4 h-4 mr-2" />
@@ -44,7 +48,7 @@ const Header = () => {
               </Button>
             </Link>
             <Link to="/register">
-              <Button className="bg-white border border-blue-500 text-blue-500 hover:bg-blue-50 text-[13px] font-semibold tracking-wide px-5 h-[38px] rounded shadow-sm">
+              <Button className="bg-primary border border-primary text-white hover:bg-primary/90 text-[13px] font-semibold tracking-wide px-5 h-[38px] rounded shadow-sm">
                 GET FREE ACCOUNT
               </Button>
             </Link>
@@ -79,13 +83,14 @@ const Header = () => {
                 </a>
               ))}
               <div className="flex flex-col gap-3 pt-4 mt-2 border-t border-border px-4">
+                <div className="flex justify-start"><RegionSwitcher /></div>
                 <Link to="/login">
                   <Button variant="outline" className="w-full justify-center">
                     <User className="w-4 h-4 mr-2" /> LOGIN
                   </Button>
                 </Link>
                 <Link to="/register">
-                  <Button className="w-full bg-white text-blue-500 border border-blue-500 hover:bg-blue-50">
+                  <Button className="w-full bg-primary text-white border border-primary hover:bg-primary/90">
                     GET FREE ACCOUNT
                   </Button>
                 </Link>

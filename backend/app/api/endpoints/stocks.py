@@ -165,14 +165,44 @@ async def search_companies(
                     market_cap=str(stock.get('market_cap', ''))
                 )
         
+        # Offline fallback: when no data-API key is set (or it returns
+        # nothing) and the local cache is empty, match a curated directory so
+        # the search box helps identify a company instead of dead-ending.
+        if not combined:
+            from app.utils.company_directory import search_directory
+            for c in search_directory(q):
+                combined[c["ticker"]] = CompanySearch(
+                    ticker=c["ticker"],
+                    name=c["name"],
+                    sector=c["sector"],
+                    price=0,
+                    change_percent=0,
+                    pe_ratio=None,
+                    revenue_growth=None,
+                    profit_margin=None,
+                    market_cap="",
+                )
+
         results = list(combined.values())[:10]
         return results
-        
+
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Search failed: {str(e)}"
-        )
+        # Never fail the search UX — fall back to the offline directory.
+        try:
+            from app.utils.company_directory import search_directory
+            return [
+                CompanySearch(
+                    ticker=c["ticker"], name=c["name"], sector=c["sector"],
+                    price=0, change_percent=0, pe_ratio=None,
+                    revenue_growth=None, profit_margin=None, market_cap="",
+                )
+                for c in search_directory(q)
+            ]
+        except Exception:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Search failed: {str(e)}"
+            )
 
 
 @router.post("/screener", response_model=StockScreenerResponse)
@@ -202,9 +232,10 @@ async def run_stock_screener(
         # Run screening
         results = screener.screen_stocks(
             filters=filters_dict,
-            sort_by=request.sort_by if hasattr(request, 'sort_by') else "market_cap",
+            sort_by=request.sort_by if hasattr(request, 'sort_by') else "match_score",
             sort_order=request.sort_order if hasattr(request, 'sort_order') else "desc",
-            limit=request.limit if hasattr(request, 'limit') else 100
+            limit=request.limit if hasattr(request, 'limit') else 100,
+            market=(getattr(request, 'market', None) or "india"),
         )
         
         # Convert to response format
@@ -296,6 +327,30 @@ async def get_stock_details(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch stock details: {str(e)}"
         )
+
+
+@router.post("/refresh")
+async def refresh_stock_data(
+    background_tasks: BackgroundTasks,
+    market: str = Query("all", description="all | india | us"),
+    current_user: dict = Depends(get_current_active_user),
+):
+    """
+    Trigger a live data refresh of the `stocks` table from Yahoo Finance.
+    Runs in the background (fetching ~100 tickers takes ~1 minute).
+    """
+    from app.utils.stock_pipeline import refresh as _refresh
+    markets = ("india", "us") if market in ("all", "both") else (market,)
+
+    async def _job():
+        try:
+            summary = await _refresh(markets)
+            print(f"[stocks refresh] done: {summary}")
+        except Exception as e:
+            print(f"[stocks refresh] failed: {e}")
+
+    background_tasks.add_task(_job)
+    return {"status": "started", "markets": list(markets), "message": "Refreshing stock data in the background."}
 
 
 @router.get("/screener/presets")

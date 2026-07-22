@@ -35,18 +35,30 @@ class Settings(BaseSettings):
     ENABLE_TEST_LOGIN: bool = False
     TEST_LOGIN_TOKEN: str = "dev-test-token"
     
-    # OpenAI
+    # OpenAI — secondary/fallback provider (gpt-4o balances quality and cost)
     OPENAI_API_KEY: str = ""
-    OPENAI_MODEL: str = "gpt-4-turbo-preview"
-    
-    # Anthropic
+    OPENAI_MODEL: str = "gpt-4o"
+
+    # Anthropic — primary provider. Claude 3.5 Sonnet is strong at grounded,
+    # structured financial extraction at a sane price (~$3/$15 per 1M tokens).
     ANTHROPIC_API_KEY: str = ""
-    ANTHROPIC_MODEL: str = "claude-3-sonnet-20240229"
+    ANTHROPIC_MODEL: str = "claude-3-5-sonnet-20241022"
     
     # Stock Data APIs
     ALPHA_VANTAGE_API_KEY: str = ""
     FMP_API_KEY: str = ""  # Financial Modeling Prep
     POLYGON_API_KEY: str = ""
+
+    # Razorpay (Pro subscription payments)
+    RAZORPAY_KEY_ID: str = ""
+    RAZORPAY_KEY_SECRET: str = ""
+
+    # Scheduled stock-data refresh (Yahoo Finance -> `stocks` table).
+    # Off by default so local dev doesn't call Yahoo on every restart; enable
+    # in production. Runs every N hours; optionally once on startup.
+    STOCK_REFRESH_ENABLED: bool = False
+    STOCK_REFRESH_INTERVAL_HOURS: int = 24
+    STOCK_REFRESH_ON_STARTUP: bool = False
     
     # Fyers API (Indian Markets)
     FYERS_APP_ID: str = ""

@@ -1,6 +1,9 @@
 import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
+import { usePlanStore } from "@/store/usePlanStore";
+import { useRegion } from "@/hooks/use-region";
+import { popularTickers } from "@/lib/region";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import CompanySearchResults from "@/components/CompanySearchResults";
 import FileProcessingStatus from "@/components/FileProcessingStatus";
@@ -16,6 +19,7 @@ import {
   CheckCircle,
   Loader2,
   ArrowRight,
+  Sparkles,
 } from "lucide-react";
 import { AnalysisIllustration } from "@/components/brand/Illustrations";
 import { api } from "@/lib/api";
@@ -39,7 +43,15 @@ const INITIAL_STEPS: ProcessingStep[] = [
 const NewAnalysis = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { region } = useRegion();
   const [searchQuery, setSearchQuery] = useState("");
+  // Seed from the user's saved defaults (Settings → Preferences), else fall back.
+  const [investorStyle, setInvestorStyle] = useState(
+    () => localStorage.getItem("fk_pref_style") || "balanced"
+  );
+  const [horizon, setHorizon] = useState(
+    () => localStorage.getItem("fk_pref_horizon") || "long_term"
+  );
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -95,6 +107,14 @@ const NewAnalysis = () => {
       return;
     }
 
+    // Token gate: no balance → upgrade (free) or top up (pro) before spending effort.
+    const plan = usePlanStore.getState();
+    const w = plan.wallet;
+    if (w && w.balance < 20000) {
+      plan.isPro() ? plan.openBuyTokens() : plan.openUpgrade("reports");
+      return;
+    }
+
     setIsProcessing(true);
     setProgress(0);
     setProcessingSteps(INITIAL_STEPS);
@@ -114,7 +134,11 @@ const NewAnalysis = () => {
       // 2. Run the AI analysis (this generates the report)
       markStep(3, "processing");
       markStep(4, "processing");
-      const result = await api.analysis.analyzeFile(upload.file_id, companyName, "");
+      const result = await api.analysis.analyzeFile(upload.file_id, companyName, "", {
+        investorStyle,
+        horizon,
+        region,
+      });
       markStep(3, "completed");
       markStep(4, "completed");
       setProgress(100);
@@ -123,16 +147,19 @@ const NewAnalysis = () => {
         throw new Error("Analysis did not return a report id.");
       }
 
-      // 3. Open the finished report
+      // Balance changed — refresh the wallet, then open the finished report
+      usePlanStore.getState().fetchWallet();
       setTimeout(() => navigate(`/dashboard/report/${result.reportId}`), 400);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Analysis failed. Please try again.";
-      toast({
-        title: "Analysis failed",
-        description: message,
-        variant: "destructive",
-      });
+      // Out of tokens → route to the right purchase surface instead of a dead error.
+      if (/token/i.test(message)) {
+        const plan = usePlanStore.getState();
+        plan.isPro() ? plan.openBuyTokens() : plan.openUpgrade("reports");
+      } else {
+        toast({ title: "Analysis failed", description: message, variant: "destructive" });
+      }
       setIsProcessing(false);
       setProgress(0);
       setProcessingSteps(INITIAL_STEPS);
@@ -153,8 +180,67 @@ const NewAnalysis = () => {
             New Analysis
           </h1>
           <p className="text-muted-foreground">
-            Upload financial statements or search for a company to analyze
+            Upload financial statements and we'll write the report the way you invest
           </p>
+        </motion.div>
+
+        {/* Personalization — tailor the analysis to the investor */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.05 }}
+          className="rounded-2xl bg-white border border-border p-6 mb-6"
+        >
+          <h2 className="text-lg font-semibold text-foreground mb-1 flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-primary" />
+            Tailor this analysis to you
+          </h2>
+          <p className="text-sm text-muted-foreground mb-4">
+            Gini writes every report through your lens — the same filing, read the way <em>you</em> invest.
+          </p>
+          <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">How do you invest?</Label>
+          <div className="flex flex-wrap gap-2 mt-2 mb-4">
+            {[
+              { id: "beginner", label: "New to investing" },
+              { id: "value", label: "Value" },
+              { id: "growth", label: "Growth" },
+              { id: "income", label: "Dividends / Income" },
+              { id: "trader", label: "Shorter-term" },
+              { id: "balanced", label: "Balanced" },
+            ].map((s) => (
+              <button
+                key={s.id}
+                onClick={() => setInvestorStyle(s.id)}
+                className={`px-3.5 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+                  investorStyle === s.id
+                    ? "bg-primary text-white border-primary"
+                    : "bg-white text-muted-foreground border-border hover:border-primary/50"
+                }`}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+          <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Your horizon</Label>
+          <div className="flex flex-wrap gap-2 mt-2">
+            {[
+              { id: "long_term", label: "Long term (years)" },
+              { id: "medium", label: "Medium (6–18 mo)" },
+              { id: "short", label: "Short term" },
+            ].map((h) => (
+              <button
+                key={h.id}
+                onClick={() => setHorizon(h.id)}
+                className={`px-3.5 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+                  horizon === h.id
+                    ? "bg-primary text-white border-primary"
+                    : "bg-white text-muted-foreground border-border hover:border-primary/50"
+                }`}
+              >
+                {h.label}
+              </button>
+            ))}
+          </div>
         </motion.div>
 
         {/* Search Company */}
@@ -164,10 +250,13 @@ const NewAnalysis = () => {
           transition={{ duration: 0.5, delay: 0.1 }}
           className="rounded-2xl bg-white border border-border p-6 mb-6"
         >
-          <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+          <h2 className="text-lg font-semibold text-foreground mb-1 flex items-center gap-2">
             <Search className="w-5 h-5 text-primary" />
             Search Public Company
           </h2>
+          <p className="text-sm text-muted-foreground mb-4">
+            Find a company, then upload its latest annual or quarterly report below to generate the analysis.
+          </p>
           <div className="relative mb-4">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
             <Input
@@ -183,7 +272,7 @@ const NewAnalysis = () => {
           {!searchQuery && (
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-sm text-muted-foreground">Popular:</span>
-              {["RELIANCE", "TCS", "INFY", "HDFCBANK", "AAPL", "MSFT"].map((ticker) => (
+              {popularTickers(region).map((ticker) => (
                 <button
                   key={ticker}
                   onClick={() => setSearchQuery(ticker)}
@@ -200,12 +289,15 @@ const NewAnalysis = () => {
             <div className="mt-6">
               <CompanySearchResults
                 query={searchQuery}
-                onAnalyze={() => {
+                onAnalyze={(company: any) => {
                   toast({
-                    title: "Upload required",
+                    title: `Ready to analyse ${company?.name || company?.ticker || "this company"}`,
                     description:
-                      "Analysis currently runs on uploaded financial documents. Please upload a report below.",
+                      "Upload its latest annual/quarterly report in the box below and Gini will do the rest.",
                   });
+                  document
+                    .querySelector('[data-tour="upload-report"], #file-upload')
+                    ?.scrollIntoView({ behavior: "smooth", block: "center" });
                 }}
               />
             </div>

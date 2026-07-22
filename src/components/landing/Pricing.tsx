@@ -2,65 +2,70 @@ import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Check, Sparkles } from "lucide-react";
-
-const plans = [
-  {
-    name: "Free",
-    description: "Perfect for getting started",
-    price: "$0",
-    inrPrice: "₹0",
-    period: "forever",
-    features: [
-      "5 reports per month",
-      "PDF upload support",
-      "Basic financial metrics",
-      "7-day report history",
-      "Email support",
-    ],
-    cta: "Get Started",
-    popular: false,
-  },
-  {
-    name: "Premium",
-    description: "For serious investors",
-    price: "$29",
-    inrPrice: "₹2,499",
-    period: "/month",
-    features: [
-      "Unlimited reports",
-      "PDF, Excel, CSV support",
-      "Advanced ratio analysis",
-      "Interactive Q&A",
-      "Stock screener access",
-      "Unlimited history",
-      "Export to PDF",
-      "Priority support",
-    ],
-    cta: "Start Premium",
-    popular: true,
-  },
-  {
-    name: "Enterprise",
-    description: "For teams & institutions",
-    price: "Custom",
-    inrPrice: "Custom",
-    period: "",
-    features: [
-      "Everything in Premium",
-      "API access",
-      "Team collaboration",
-      "Custom integrations",
-      "Dedicated account manager",
-      "SLA guarantee",
-      "On-premise deployment",
-      "Custom training",
-    ],
-    cta: "Contact Sales",
-    popular: false,
-  },
-];
+import { billingFor } from "@/store/usePlanStore";
+import { formatPrice } from "@/lib/currency";
+import { useRegion } from "@/hooks/use-region";
 
 const Pricing = () => {
+  // Single source of truth: the same regional catalogue used at checkout.
+  const { region } = useRegion();
+  const bp = billingFor(region);
+
+  const plans = [
+    {
+      name: "Free",
+      description: "Perfect for getting started",
+      price: formatPrice(0, bp.currency),
+      period: "forever",
+      features: [
+        "5 AI reports per month",
+        "PDF upload support",
+        "Basic financial metrics",
+        "Report history",
+        "Email support",
+      ],
+      cta: "Get Started",
+      popular: false,
+    },
+    {
+      name: "Premium",
+      description: "For serious investors",
+      price: formatPrice(bp.monthly, bp.currency),
+      period: "/month",
+      subprice: `or ${formatPrice(bp.yearly, bp.currency)}/year — save 33%`,
+      features: [
+        "Unlimited AI reports",
+        "PDF, Excel, CSV support",
+        "Advanced ratio analysis",
+        "Interactive Q&A",
+        "Stock screener access",
+        "Unlimited history",
+        "PDF report exports",
+        "Priority support",
+      ],
+      cta: "Start Premium",
+      popular: true,
+    },
+    {
+      name: "Enterprise",
+      description: "For teams & institutions",
+      price: "Custom",
+      period: "",
+      features: [
+        "Everything in Premium",
+        "API access",
+        "Team collaboration",
+        "Custom integrations",
+        "Dedicated account manager",
+        "SLA guarantee",
+        "On-premise deployment",
+        "Custom training",
+      ],
+      cta: "Contact Sales",
+      popular: false,
+    },
+  ];
+
   return (
     <section id="pricing" className="py-24 md:py-32 bg-white">
       <div className="container px-4">
@@ -122,10 +127,9 @@ const Pricing = () => {
                   </span>
                   <span className="text-muted-foreground">{plan.period}</span>
                 </div>
-                <p className="text-xs text-muted-foreground mt-2">
-                  INR: {plan.inrPrice}
-                  {plan.period ? plan.period : ""}
-                </p>
+                {"subprice" in plan && plan.subprice && (
+                  <p className="text-xs text-primary font-medium mt-2">{plan.subprice}</p>
+                )}
               </div>
 
               {/* Features */}

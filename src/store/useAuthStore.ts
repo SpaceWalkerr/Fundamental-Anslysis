@@ -23,6 +23,8 @@ interface AuthState {
   register: (name: string, email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   updateUser: (updates: Partial<User>) => Promise<void>;
+  /** Local-only user patch (no backend call) — e.g. after server-verified plan change. */
+  patchUser: (updates: Partial<User>) => void;
   initializeAuth: () => Promise<void>;
 }
 
@@ -32,9 +34,12 @@ const TEST_USER: User = {
   id: "00000000-0000-4000-8000-000000000001",
   name: "Test User",
   email: "test@example.com",
-  plan: "enterprise",
-  reportsUsed: 0,
-  reportsLimit: 999,
+  // Default the dev test-login to the FREE tier so the local experience shows
+  // the full Free journey + all Pro upgrade nudges. Upgrade via the real
+  // Razorpay flow (or flip to "premium" here) to preview Pro.
+  plan: "free",
+  reportsUsed: 3,
+  reportsLimit: 5,
 };
 
 export const useAuthStore = create<AuthState>()(
@@ -46,6 +51,16 @@ export const useAuthStore = create<AuthState>()(
 
       initializeAuth: async () => {
         set({ isLoading: true });
+
+        // DEV bypass: when test login is enabled (VITE_ENABLE_TEST_LOGIN=true),
+        // auto sign-in as the Test User so protected routes work locally without
+        // the hosted Google/Supabase OAuth redirect. No effect in production
+        // where the flag is unset.
+        if (TEST_LOGIN_ENABLED) {
+          localStorage.setItem("auth_token", TEST_LOGIN_TOKEN);
+          set({ user: TEST_USER, isAuthenticated: true, isLoading: false });
+          return;
+        }
 
         try {
           const {
@@ -226,6 +241,10 @@ export const useAuthStore = create<AuthState>()(
         } finally {
           set({ user: null, isAuthenticated: false });
         }
+      },
+
+      patchUser: (updates: Partial<User>) => {
+        set((state) => ({ user: state.user ? { ...state.user, ...updates } : null }));
       },
 
       updateUser: async (updates: Partial<User>) => {

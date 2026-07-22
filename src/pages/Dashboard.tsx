@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
 import { useMarketData } from "@/hooks/use-market-data";
+import { useRegion } from "@/hooks/use-region";
+import { popularTickers } from "@/lib/region";
 import {
   Search,
   Upload,
@@ -54,6 +56,7 @@ const recentReports = [
 
 const Dashboard = () => {
   const { user } = useAuthStore();
+  const { region } = useRegion();
   const userKey = user ? `quick_access_watchlist_${user.id}` : "quick_access_watchlist";
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchFocused, setIsSearchFocused] = useState(false);
@@ -330,7 +333,7 @@ const Dashboard = () => {
           className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8"
         >
           {/* Search Company */}
-          <div className="p-6 rounded-2xl bg-white border border-border shadow-sm">
+          <div className="p-6 rounded-2xl bg-white border border-border shadow-sm" data-tour="search-company">
             <h2 className="text-base font-bold text-foreground mb-4 flex items-center gap-2">
               <Search className="w-4 h-4 text-primary" />
               Search Company
@@ -367,7 +370,7 @@ const Dashboard = () => {
               )}
             </div>
             <div className="flex flex-wrap gap-2 mt-4">
-              {["RELIANCE", "TCS", "INFY", "HDFCBANK", "AAPL", "MSFT"].map((ticker) => (
+              {popularTickers(region).map((ticker) => (
                 <button
                   key={ticker}
                   onClick={() => {
@@ -383,7 +386,7 @@ const Dashboard = () => {
           </div>
 
           {/* Upload */}
-          <div className="p-6 rounded-2xl bg-white border border-border shadow-sm">
+          <div className="p-6 rounded-2xl bg-white border border-border shadow-sm" data-tour="upload-report">
             <h2 className="text-base font-bold text-foreground mb-4 flex items-center gap-2">
               <Upload className="w-4 h-4 text-primary" />
               Upload Financial Statements
